@@ -6,9 +6,14 @@ public struct ProjectEnvironment: Sendable {
     public let deploymentTargets: DeploymentTargets
     public let destinations: Destinations
     public let baseSwiftSettings: SettingsDictionary
+    public let dynamicLinking: Bool
     
     public func bundleId(_ suffix: String) -> String {
         "\(organizationName).\(suffix)"
+    }
+    
+    public var moduleProduct: Product {
+        dynamicLinking ? .framework : .staticFramework
     }
 }
 
@@ -20,5 +25,6 @@ public let env = ProjectEnvironment(
     baseSwiftSettings: [
         "SWIFT_VERSION": "6.0",
         "SWIFT_STRICT_CONCURRENCY": "complete"
-    ]
+    ],
+    dynamicLinking: Environment.dynamicModules.getBoolean(default: true)
 )
