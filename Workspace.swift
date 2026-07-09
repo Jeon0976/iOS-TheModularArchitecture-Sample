@@ -14,5 +14,5 @@ let workspace = Workspace(
         ModulePaths.Shared.allCases.map { .relativeToShared($0.rawValue) }
     + ModulePaths.Core.allCases.map { .relativeToCore($0.rawValue) }
     + ModulePaths.Feature.allCases.map { .relativeToFeature($0.rawValue )}
-    + [.relativeToRoot("Project/App/GitSearchApp")]
+    + [.relativeToRoot("Projects/App/GitSearchApp")]
 )
