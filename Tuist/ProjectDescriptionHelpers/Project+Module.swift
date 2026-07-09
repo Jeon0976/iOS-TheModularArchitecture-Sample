@@ -10,7 +10,7 @@ import DependencyPlugin
 import EnvironmentPlugin
 import ProjectDescription
 
-public extension Product {
+public extension Project {
     static func module(
         name: String,
         packages: [Package] = [],
