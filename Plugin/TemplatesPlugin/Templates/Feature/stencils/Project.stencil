@@ -1,0 +1,57 @@
+import DependencyPlugin
+import ProjectDescription
+import ProjectDescriptionHelpers
+
+let project = Project.module(
+    name: ModulePaths.Feature.{{ name }}.rawValue,
+    targets: [
+        .interface(
+            module: .feature(.{{ name }}),
+            dependencies: [
+                .shared(target: .SharedKit)
+            ]
+        ),
+        .implements(
+            module: .feature(.{{ name }}),
+            dependencies: [
+                .feature(
+                    target: .{{ name }},
+                    type: .interface
+                ),
+                .shared(target: .SharedKit),
+                .core(target: .CoreNetwork),
+                .core(target: .CoreDesignSystem)
+            ]
+        ),
+        .testing(
+            module: .feature(.{{ name }}),
+            dependencies: [
+                .feature(
+                    target: .{{ name }},
+                    type: .interface
+                ),
+                .shared(target: .SharedKit)
+            ]
+        ),
+        .tests(
+            module: .feature(.{{ name }}),
+            dependencies: [
+                .feature(target: .{{ name }}),
+                .feature(
+                    target: .{{ name }},
+                    type: .testing
+                ),
+            ]
+        ),
+        .demo(
+            module: .feature(.{{ name }}),
+            dependencies: [
+                .feature(target: .{{ name }}),
+                .feature(
+                    target: .{{ name }},
+                    type: .testing
+                ),
+            ]
+        ),
+    ]
+)

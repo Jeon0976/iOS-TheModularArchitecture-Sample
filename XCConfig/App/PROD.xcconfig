@@ -1,0 +1,3 @@
+// App PROD 설정 — 공통(Shared)을 상속 + 시크릿(있으면) 포함.
+#include "../Shared.xcconfig"
+#include? "../../Secrets.xcconfig"
