@@ -1,0 +1,21 @@
+import DependencyPlugin
+import ProjectDescription
+import ProjectDescriptionHelpers
+
+let project = Project.module(
+    name: ModulePaths.{{ layer }}.{{ name }}.rawValue,
+    targets: [
+        .implements(module: .{{ layer|lowercase }}(.{{ name }})),
+        .testing(
+            module: .{{ layer|lowercase }}(.{{ name }}),
+            dependencies: [.{{ layer|lowercase }}(target: .{{ name }})]
+        ),
+        .tests(
+            module: .{{ layer|lowercase }}(.{{ name }}),
+            dependencies: [
+                .{{ layer|lowercase }}(target: .{{ name }}),
+                .{{ layer|lowercase }}(target: .{{ name }}, type: .testing)
+            ]
+        ),
+    ]
+)
