@@ -14,27 +14,27 @@ let template = Template(
     attributes: [name],
     items: [
         .file(
-            path: "Projects/Features/\(name)/Project.swift",
+            path: "Projects/Feature/\(name)/Project.swift",
             templatePath: "stencils/Project.stencil"
         ),
         .file(
-            path: "Projects/Features/\(name)/Interface/Sources/\(name)Serving.swift",
+            path: "Projects/Feature/\(name)/Interface/Sources/\(name)Serving.swift",
             templatePath: "stencils/Serving.stencil"
         ),
         .file(
-            path: "Projects/Features/\(name)/Sources/Composition/\(name)ServingImpl.swift",
+            path: "Projects/Feature/\(name)/Sources/Composition/\(name)ServingImpl.swift",
             templatePath: "stencils/ServingImpl.stencil"
         ),
         .file(
-            path: "Projects/Features/\(name)/Testing/Sources/Stub\(name)Serving.swift",
+            path: "Projects/Feature/\(name)/Testing/Sources/Stub\(name)Serving.swift",
             templatePath: "stencils/StubServing.stencil"
         ),
         .file(
-            path: "Projects/Features/\(name)/Tests/\(name)Tests.swift",
+            path: "Projects/Feature/\(name)/Tests/\(name)Tests.swift",
             templatePath: "stencils/Tests.stencil"
         ),
         .file(
-            path: "Projects/Features/\(name)/Demo/Sources/\(name)DemoApp.swift",
+            path: "Projects/Feature/\(name)/Demo/Sources/\(name)DemoApp.swift",
             templatePath: "stencils/DemoApp.stencil"
         ),
     ]
