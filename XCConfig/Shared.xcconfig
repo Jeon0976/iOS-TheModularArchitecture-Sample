@@ -1,4 +1,0 @@
-// 전 타겟 공통 빌드 설정 (dev/prod 양쪽 .default 가 참조)
-// Xcode 15+ 는 Run Script 빌드 페이즈를 샌드박스함 → SwiftLint/SwiftFormat 등이
-// $SRCROOT 접근 못 해 실패하므로 끈다.
-ENABLE_USER_SCRIPT_SANDBOXING = NO

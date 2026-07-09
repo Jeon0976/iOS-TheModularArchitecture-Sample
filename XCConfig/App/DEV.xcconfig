@@ -1,4 +1,0 @@
-// App DEV 설정 — 공통(Shared)을 상속 + 시크릿(있으면) 포함.
-// DEV 컴파일 플래그는 여기 두지 않는다(prod에 샘) — ConfigurationPlugin 의 dev 설정 dict 에 있음.
-#include "../Shared.xcconfig"
-#include? "../../Secrets.xcconfig"

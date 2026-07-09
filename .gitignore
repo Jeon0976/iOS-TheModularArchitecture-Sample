@@ -68,6 +68,3 @@ Derived/
 
 ### Tuist managed dependencies ###
 Tuist/.build
-
-### Secrets ###
-Secrets.xcconfig
