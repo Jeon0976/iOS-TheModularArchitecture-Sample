@@ -2,3 +2,9 @@
 // Xcode 15+ 는 Run Script 빌드 페이즈를 샌드박스함 → SwiftLint/SwiftFormat 등이
 // $SRCROOT 접근 못 해 실패하므로 끈다.
 ENABLE_USER_SCRIPT_SANDBOXING = NO
+
+// Xcode "권장 설정 업데이트" 안내 정렬 — 이 키들이 없으면 모듈(프로젝트)마다 안내가 뜬다.
+// Perform Changes로 고치면 생성물(.xcodeproj)만 바뀌어 다음 tuist generate 때 원복되므로
+// 소스(여기)에 둔다. Module Verifier는 프레임워크 모듈 정의를 빌드 시 검증하는 권장 설정.
+ENABLE_MODULE_VERIFIER = YES
+STRING_CATALOG_GENERATE_SYMBOLS = YES
