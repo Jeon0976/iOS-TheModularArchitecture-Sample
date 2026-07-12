@@ -9,6 +9,15 @@ import DependencyPlugin
 import ProjectDescription
 import ProjectDescriptionHelpers
 
+let hostedTests: Target = TargetSpec(
+    product: .unitTests,
+    sources: "HostedTests/**",
+    dependencies: [
+        .target(name: "CoreStorageDemo"),
+        .core(target: .CoreStorage)
+    ]
+).toTarget(with: "CoreStorageHostedTests", product: .unitTests)
+
 let project = Project.module(
     name: ModulePaths.Core.CoreStorage.rawValue,
     targets: [
@@ -23,6 +32,13 @@ let project = Project.module(
                 .core(target: .CoreStorage),
                 .core(target: .CoreStorage, type: .testing)
             ]
-        )
+        ),
+        .demo(
+            module: .core(.CoreStorage),
+            dependencies: [
+                .core(target: .CoreStorage)
+            ]
+        ),
+        hostedTests
     ]
 )
