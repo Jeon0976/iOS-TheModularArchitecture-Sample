@@ -7,13 +7,20 @@ import FeatureSearchInterface
 @MainActor
 public final class StubFeatureSearchServing: FeatureSearchServing {
     public private(set) var makeCallCount = 0
-    public init() {}
+    public private(set) var lastActions: FeatureSearchCoordinatorActions?
 
-    public func makeEntryViewController() -> UIViewController {
+    public init() {}
+    
+    public func makeSearchEntryViewController(
+        actions: FeatureSearchCoordinatorActions?
+    ) -> UIViewController {
         makeCallCount += 1
+        lastActions = actions
+
         let viewController = UIViewController()
         viewController.view.backgroundColor = .systemBackground
-        viewController.title = "Stub FeatureSearch"
+        viewController.title = "Stub Search"
+
         return viewController
     }
 }

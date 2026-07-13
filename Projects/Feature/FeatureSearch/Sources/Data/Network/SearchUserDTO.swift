@@ -42,7 +42,7 @@ struct SearchUserResponse: Decodable, Sendable {
         case id
         case name = "login"
         case url = "html_url"
-        case imagePath = "avater_url"
+        case imagePath = "avatar_url"
     }
     
     func toDomain() -> GithubUser {
