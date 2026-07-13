@@ -18,8 +18,11 @@ final class DesignSystemDemoAppDelegate: UIResponder, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         let window = UIWindow(frame: UIScreen.main.bounds)
-        let viewController = UIViewController()
-        window.rootViewController = viewController
+        
+        window.rootViewController = UINavigationController(
+            rootViewController: ComponentUserListViewController()
+        )
+
         window.makeKeyAndVisible()
 
         self.window = window

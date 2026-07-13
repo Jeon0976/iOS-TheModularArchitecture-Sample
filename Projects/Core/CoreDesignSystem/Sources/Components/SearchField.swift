@@ -44,7 +44,7 @@ public final class SearchField: UITextField {
         }
     }
     
-    private var textFieldShouldSearch: (() -> Void)?
+    public var textFieldShouldSearch: (() -> Void)?
     
     override public init(frame: CGRect) {
         super.init(frame: frame)

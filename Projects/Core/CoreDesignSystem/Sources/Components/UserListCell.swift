@@ -155,7 +155,7 @@ public final class UserListCell: UITableViewCell {
         proflileImageView.backgroundColor = .clear
     }
     
-    private func setProfile(_ image: UIImage?) {
+    public func setProfile(_ image: UIImage?) {
         profileLoadingSpinner.stopAnimating()
         
         if let image {
