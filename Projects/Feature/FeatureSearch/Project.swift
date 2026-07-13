@@ -41,6 +41,7 @@ let project = Project.module(
                     target: .FeatureSearch,
                     type: .testing
                 ),
+                .core(target: .CoreNetwork, type: .testing)
             ]
         ),
         .demo(
