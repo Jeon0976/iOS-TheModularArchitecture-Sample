@@ -8,11 +8,11 @@
 
 import Foundation
 
-protocol FeatchProfileUseCase: Sendable {
+protocol FetchProfileUseCase: Sendable {
     func execute(imagePath: String, id: Int) async throws -> Data
 }
 
-struct FeatchProfileUseCaseImpl: FeatchProfileUseCase {
+struct FetchProfileUseCaseImpl: FetchProfileUseCase {
     private let profileImageRepository: any ProfileImageRepositoryInterface
     
     init(profileImageRepository: any ProfileImageRepositoryInterface) {
@@ -20,6 +20,9 @@ struct FeatchProfileUseCaseImpl: FeatchProfileUseCase {
     }
     
     func execute(imagePath: String, id: Int) async throws -> Data {
-        try await profileImageRepository.fetchProfile(with: imagePath, userID: id)
+        try await profileImageRepository.fetchProfile(
+            with: imagePath,
+            userID: id
+        )
     }
 }
