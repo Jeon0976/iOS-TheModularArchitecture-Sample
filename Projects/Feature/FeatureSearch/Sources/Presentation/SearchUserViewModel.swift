@@ -62,27 +62,22 @@ final class SearchUserViewModel: BaseViewModel {
         input.searchUser
             .filter { !$0.isEmpty }
             .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
-            .sink { [weak self] query in
-                guard let self else { return }
-                
-                self.searchUsers(query: query)
+            .sink(with: self, in: &cancellables) { owner, query in
+                owner.searchUsers(query: query)
             }
-            .store(in: &cancellables)
         
         input.loadNextPage
             .filter { [weak self] in
                 self?.paginator.hasNextPage ?? false
             }
-            .sink { [weak self] _ in
-                self?.loadNextPage()
+            .sink(with: self, in: &cancellables) { owner, _ in
+                owner.loadNextPage()
             }
-            .store(in: &cancellables)
-        
+
         input.backToLogin
-            .sink { [weak self] _ in
-                self?.actions?.searchNeedsLogin()
+            .sink(with: self, in: &cancellables) { owner, _ in
+                owner.actions?.searchNeedsLogin()
             }
-            .store(in: &cancellables)
         
         return Output(
             state: stateSubject
@@ -122,30 +117,25 @@ final class SearchUserViewModel: BaseViewModel {
         send(.searching)
         
         searchTask.replace(
-            onError: { [weak self] error in
-                guard let self else { return }
-                
+            with: self,
+            onError: { owner, error in
                 // 실패 -> 직전에 보던 화면으로 복귀
-                self.send(self.lastStableState)
-                self.errorSubject.send(error)
+                owner.send(owner.lastStableState)
+                owner.errorSubject.send(error)
             }
-        ) { [weak self] in
-            guard let self else { return }
+        ) { owner in
+            let firstPage = owner.paginator.begin(query: query)
             
-            let firstPage = paginator.begin(query: query)
-            let page = try await searchUsersUseCase.execute(
+            let page = try await owner.searchUsersUseCase.execute(
                 query: query,
                 page: firstPage,
-                perPage: paginator.perPage
+                perPage: owner.paginator.perPage
             )
-            
+
             guard !Task.isCancelled else { return }
-            
-            paginator.apply(page)
-            
-            send(
-                page.users.isEmpty ? .empty : .loaded(users: page.users, isPagingNext: false)
-            )
+
+            owner.paginator.apply(page)
+            owner.send(page.users.isEmpty ? .empty : .loaded(users: page.users, isPagingNext: false))
         }
     }
     
@@ -155,37 +145,28 @@ final class SearchUserViewModel: BaseViewModel {
         send(.loaded(users: users, isPagingNext: true))
         
         loadNextPageTask.runIfIdle(
-            onError: { [weak self] error in
-                guard let self else { return }
-                
-                self.send(self.lastStableState)
-                self.errorSubject.send(error)
+            with: self,
+            onError: { owner, error in
+                owner.send(owner.lastStableState)
+                owner.errorSubject.send(error)
             }
-        ) { [weak self] in
-            guard let self else { return }
-            
-            let nextPage = try paginator.nextPage()
-            let page = try await searchUsersUseCase.execute(
-                query: paginator.currentQuery ?? "",
+        ) { owner in
+            let nextPage = try owner.paginator.nextPage()
+            let page = try await owner.searchUsersUseCase.execute(
+                query: owner.paginator.currentQuery ?? "",
                 page: nextPage,
-                perPage: paginator.perPage
+                perPage: owner.paginator.perPage
             )
-            
+
             guard !Task.isCancelled else { return }
-            
-            paginator.apply(page)
-            
+
+            owner.paginator.apply(page)
+
+            // 서버가 페이지 경계에서 같은 사용자를 중복으로 줄 수 있다 — id로 방어.
             let existingIDs = Set(users.map(\.id))
-            let uniqueUsers = page.users.filter {
-                !existingIDs.contains($0.id)
-            }
-            
-            send(
-                .loaded(
-                    users: users + uniqueUsers,
-                    isPagingNext: false
-                )
-            )
+            let uniqueUsers = page.users.filter { !existingIDs.contains($0.id) }
+
+            owner.send(.loaded(users: users + uniqueUsers, isPagingNext: false))
         }
     }
 }
