@@ -13,7 +13,9 @@ public final class UserListCell: UITableViewCell {
     
     public var representedID: Int?
     
-    private let imageSize: CGFloat = 55
+    public static let profileSize: CGFloat = 55
+    
+    private let imageSize: CGFloat = UserListCell.profileSize
     
     // MARK: - UI Component
     
