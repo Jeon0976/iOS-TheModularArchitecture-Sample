@@ -40,6 +40,51 @@ public final class ManagedTask {
         start(onError: onError, opeartion: operation)
     }
     
+    // MARK: - owner 편의성 (호출부의 [weak self] / guard let self 제거)
+    
+    public func replace<Owner: AnyObject>(
+        with owner: Owner,
+        onError: ((Owner, Error) -> Void)? = nil,
+        operation: @escaping @MainActor (Owner) async throws -> Void
+    ) {
+        task?.cancel()
+        
+        start(
+            onError: onError.map { handler in
+                { [weak owner] error in
+                    guard let owner else { return }
+                    
+                    handler(owner, error)
+                }
+            },
+            opeartion: { [weak owner] in
+                guard let owner else { return }
+                
+                try await operation(owner)
+            }
+        )
+    }
+    
+    public func runIfIdle<Owner: AnyObject>(
+        with owner: Owner,
+        onError: ((Owner, Error) -> Void)? = nil,
+        operation: @escaping @MainActor (Owner) async throws -> Void
+    ) {
+        guard task == nil else { return }
+        start(
+            onError: onError.map { handler in
+                { [weak owner] error in
+                    guard let owner else { return }
+                    handler(owner, error)
+                }
+            },
+            opeartion: { [weak owner] in
+                guard let owner else { return }
+                try await operation(owner)
+            }
+        )
+    }
+
     public func cancel() {
         task?.cancel()
         
@@ -58,7 +103,7 @@ public final class ManagedTask {
             do {
                 try await opeartion()
             } catch is CancellationError {
-               // 취소는 실패가 이나리 중단
+                // 취소는 실패가 이나리 중단
             } catch {
                 // 취소된 작업의 늦은 실패도 침묵
                 if !Task.isCancelled { onError?(error) }
