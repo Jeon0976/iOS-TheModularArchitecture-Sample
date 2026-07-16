@@ -30,7 +30,8 @@ let project = Project.module(
                     target: .FeatureSearch,
                     type: .interface
                 ),
-                .shared(target: .SharedKit)
+                .shared(target: .SharedKit),
+                .core(target: .CoreNetwork)
             ]
         ),
         .tests(

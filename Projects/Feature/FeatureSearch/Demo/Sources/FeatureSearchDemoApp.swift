@@ -1,10 +1,11 @@
 import UIKit
 
+import FeatureSearch
 import FeatureSearchInterface
 #if DEV
 import FeatureSearchTesting
 #else
-import FeatureSearch
+import CoreNetwork
 #endif
 
 @main
@@ -17,14 +18,17 @@ final class FeatureSearchDemoAppDelegate: UIResponder, UIApplicationDelegate {
     ) -> Bool {
         let serving: any FeatureSearchServing
         #if DEV
-        serving = StubFeatureSearchServing()
+        serving = FeatureSearchServingImpl(session: MockGithubSearchSession())
         #else
-        serving = FeatureSearchServingImpl()
+        serving = FeatureSearchServingImpl(session: NetworkSession())
         #endif
 
         let window = UIWindow(frame: UIScreen.main.bounds)
-        window.rootViewController = UINavigationController(rootViewController: serving.makeSearchEntryViewController(actions: nil))
+        window.rootViewController = UINavigationController(
+            rootViewController: serving.makeSearchEntryViewController(actions: nil)
+        )
         window.makeKeyAndVisible()
+        
         self.window = window
         return true
     }
