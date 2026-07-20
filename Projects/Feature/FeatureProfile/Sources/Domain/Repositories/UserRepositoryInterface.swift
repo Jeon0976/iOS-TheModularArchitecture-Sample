@@ -8,5 +8,6 @@
 
 protocol UserRepositoryInterface: Sendable {
     func getUser() async throws -> User
+    func refreshUser() async throws -> User
     func clearUser()
 }
