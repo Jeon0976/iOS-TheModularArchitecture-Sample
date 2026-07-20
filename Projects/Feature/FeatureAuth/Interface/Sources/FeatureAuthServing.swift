@@ -1,8 +1,21 @@
 import UIKit
 
-/// FeatureAuth 공개 protocol / 다른 피처·App이 보는 유일한 창구
 @MainActor
-public protocol FeatureAuthServing {
-    func makeEntryViewController() -> UIViewController
+public protocol FeatureAuthServing: AnyObject {
+    var isLoggedIn: Bool { get }
+    
+    func makeLoginViewController(actions: FeatureAuthCoordinatorActions?) -> UIViewController
+    
+    
+    /// OAuth 리다이렉트 URL 처리
+    @discardableResult
+    func handleOAuthCallback(_ url: URL) -> Bool
+    
+    func logout()
+}
+
+@MainActor
+public protocol FeatureAuthCoordinatorActions: AnyObject {
+    func authDidLogin()
 }
 

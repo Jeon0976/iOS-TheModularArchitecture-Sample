@@ -10,26 +10,43 @@ import CoreNetwork
 
 @main
 final class FeatureSearchDemoAppDelegate: UIResponder, UIApplicationDelegate {
-    var window: UIWindow?
-
     func application(
         _ application: UIApplication,
-        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
-    ) -> Bool {
-        let serving: any FeatureSearchServing
-        #if DEV
-        serving = FeatureSearchServingImpl(session: MockGithubSearchSession())
-        #else
-        serving = FeatureSearchServingImpl(session: NetworkSession())
-        #endif
-
-        let window = UIWindow(frame: UIScreen.main.bounds)
-        window.rootViewController = UINavigationController(
-            rootViewController: serving.makeSearchEntryViewController(actions: nil)
+        configurationForConnecting connectingSceneSession: UISceneSession,
+        options: UIScene.ConnectionOptions
+    ) -> UISceneConfiguration {
+        let configuration = UISceneConfiguration(
+            name: nil,
+            sessionRole: connectingSceneSession.role
         )
-        window.makeKeyAndVisible()
-        
-        self.window = window
-        return true
+        configuration.delegateClass = FeatureSearchDemoAppDelegate.self
+        return configuration
     }
 }
+
+final class FeatureSearchDemoSceneDelegate: UIResponder, UIWindowSceneDelegate {
+    var window: UIWindow?
+
+    func scene(
+        _ scene: UIScene,
+        willConnectTo session: UISceneSession,
+        options connectionOptions: UIScene.ConnectionOptions
+    ) {
+        guard let windowScene = scene as? UIWindowScene else { return }
+
+        let search: any FeatureSearchServing
+        #if DEV
+        search = FeatureSearchServingImpl(session: MockGithubSearchSession())
+        #else
+        search = FeatureSearchServingImpl(session: NetworkSession())
+        #endif
+
+        let window = UIWindow(windowScene: windowScene)
+        window.rootViewController = UINavigationController(
+            rootViewController: search.makeSearchEntryViewController(actions: nil)
+        )
+        window.makeKeyAndVisible()
+        self.window = window
+    }
+}
+

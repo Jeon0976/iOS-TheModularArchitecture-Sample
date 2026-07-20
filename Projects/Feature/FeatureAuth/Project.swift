@@ -20,7 +20,8 @@ let project = Project.module(
                 ),
                 .shared(target: .SharedKit),
                 .core(target: .CoreNetwork),
-                .core(target: .CoreDesignSystem)
+                .core(target: .CoreDesignSystem),
+                .core(target: .CoreStorage)
             ]
         ),
         .testing(
@@ -30,7 +31,8 @@ let project = Project.module(
                     target: .FeatureAuth,
                     type: .interface
                 ),
-                .shared(target: .SharedKit)
+                .shared(target: .SharedKit),
+                .core(target: .CoreNetwork)
             ]
         ),
         .tests(
@@ -51,6 +53,7 @@ let project = Project.module(
                     target: .FeatureAuth,
                     type: .testing
                 ),
+                .core(target: .CoreStorage, type: .testing)
             ]
         ),
     ]
