@@ -23,7 +23,7 @@ final class FeatureProfileDemoAppDelegate: UIResponder, UIApplicationDelegate {
         #endif
 
         let window = UIWindow(frame: UIScreen.main.bounds)
-        window.rootViewController = UINavigationController(rootViewController: serving.makeEntryViewController())
+        window.rootViewController = UINavigationController(rootViewController: serving.makeProfileEntryViewController(actions: nil))
         window.makeKeyAndVisible()
         self.window = window
         return true
