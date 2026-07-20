@@ -1,7 +1,7 @@
 [한국어](README.md) | **English**
 
 # TheModularArchitecture-Sample
-> An iOS sample application built on the Micro Feature Architecture (TMA) with Tuist local plugins.
+> An iOS sample application built on TMA (The Modular Architecture) with Tuist local plugins.
 > Successor to [iOS-CleanArchitecture-Sample](https://github.com/Jeon0976/iOS-CleanArchitecture-Sample) — the same app restructured from layer-oriented (horizontal slicing) to feature-oriented (vertical slicing) modules.
 
 ### Features

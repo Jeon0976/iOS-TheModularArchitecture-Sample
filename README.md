@@ -1,7 +1,7 @@
 **한국어** | [English](README.en.md)
 
 # TheModularArchitecture-Sample
-> Tuist 로컬 플러그인 기반의 Micro Feature Architecture(TMA)를 준수한 iOS 샘플 애플리케이션입니다.
+> Tuist 로컬 플러그인 기반의 TMA(The Modular Architecture)를 준수한 iOS 샘플 애플리케이션입니다.
 > [iOS-CleanArchitecture-Sample](https://github.com/Jeon0976/iOS-CleanArchitecture-Sample)의 후속 프로젝트로, 같은 앱을 레이어 중심(수평 절단)에서 피처 중심(수직 절단)으로 재구성했습니다.
 
 ### 주요 기능
