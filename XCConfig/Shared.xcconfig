@@ -8,3 +8,8 @@ ENABLE_USER_SCRIPT_SANDBOXING = NO
 // 소스(여기)에 둔다. Module Verifier는 프레임워크 모듈 정의를 빌드 시 검증하는 권장 설정.
 ENABLE_MODULE_VERIFIER = YES
 STRING_CATALOG_GENERATE_SYMBOLS = YES
+
+// Module Verifier가 검증할 클라이언트 언어 방언 — ENABLE_MODULE_VERIFIER의 짝.
+// 이 키가 없으면 "Enable Module Verifier Supported Languages" 안내가 프레임워크마다 뜬다.
+MODULE_VERIFIER_SUPPORTED_LANGUAGES = objective-c objective-c++
+MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = gnu17 gnu++20

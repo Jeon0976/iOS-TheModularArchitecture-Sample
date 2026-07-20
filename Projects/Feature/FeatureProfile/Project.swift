@@ -14,13 +14,11 @@ let project = Project.module(
         .implements(
             module: .feature(.FeatureProfile),
             dependencies: [
-                .feature(
-                    target: .FeatureProfile,
-                    type: .interface
-                ),
+                .feature(target: .FeatureProfile, type: .interface),
                 .shared(target: .SharedKit),
                 .core(target: .CoreNetwork),
-                .core(target: .CoreDesignSystem)
+                .core(target: .CoreDesignSystem),
+                .feature(target: .FeatureAuth, type: .interface)
             ]
         ),
         .testing(
@@ -37,10 +35,9 @@ let project = Project.module(
             module: .feature(.FeatureProfile),
             dependencies: [
                 .feature(target: .FeatureProfile),
-                .feature(
-                    target: .FeatureProfile,
-                    type: .testing
-                ),
+                .feature(target: .FeatureProfile,type: .testing),
+                .core(target: .CoreNetwork, type: .testing),
+                .feature(target: .FeatureAuth, type: .testing)
             ]
         ),
         .demo(
