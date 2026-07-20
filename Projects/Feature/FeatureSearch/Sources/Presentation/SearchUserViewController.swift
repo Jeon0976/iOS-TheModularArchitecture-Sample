@@ -134,7 +134,7 @@ final class SearchUserViewController: BaseViewController {
             usersTableView.topAnchor.constraint(equalTo: searchField.bottomAnchor),
             usersTableView.leadingAnchor.constraint(equalTo: self.view.leadingAnchor, constant: 16),
             usersTableView.trailingAnchor.constraint(equalTo: self.view.trailingAnchor, constant: -16),
-            usersTableView.bottomAnchor.constraint(equalTo: self.view.safeAreaLayoutGuide.bottomAnchor),
+            usersTableView.bottomAnchor.constraint(equalTo: self.view.bottomAnchor),
 
             emptyUserList.centerXAnchor.constraint(equalTo: self.view.centerXAnchor),
             emptyUserList.centerYAnchor.constraint(equalTo: self.view.centerYAnchor),

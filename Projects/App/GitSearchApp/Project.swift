@@ -25,7 +25,7 @@ let appTarget: Target = TargetSpec(
     infoPlist: .extendingDefault(with: [
         "UILaunchScreen": .dictionary([:]),
         "CFBundleDisplayName": .string("GitSearch"),
-        "UIApplicationSceneManifest": .dictionary(["UIApplicationSupportMultipleScenes": .boolean(false)]),
+        "UIApplicationSceneManifest": .dictionary(["UIApplicationSupportsMultipleScenes": .boolean(false)]),
         "CFBundleURLTypes": .array([
             .dictionary([
                 "CFBundleTypeRole": .string("Editor"),
