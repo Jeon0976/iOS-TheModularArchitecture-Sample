@@ -84,7 +84,10 @@ public extension Target {
             product: .app,
             infoPlist: .extendingDefault(with: [
                 "UILaunchScreen": .dictionary([:]),
-                "CFBundleDisplayName": .string(demoName)
+                "CFBundleDisplayName": .string(demoName),
+                "UIApplicationSceneManifest": .dictionary([
+                    "UIApplicationSupportsMultipleScenes": .boolean(false)
+                ])
             ]),
             sources: .demo,
             dependencies: dependencies
