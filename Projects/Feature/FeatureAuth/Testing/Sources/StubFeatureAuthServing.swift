@@ -3,17 +3,34 @@ import UIKit
 
 import FeatureAuthInterface
 
-// Interface의 Mock — 다른 모듈의 테스트/Demo(DEV)가 재사용한다. Interface에만 의존한다.
 @MainActor
-public final class StubFeatureAuthServing: FeatureAuthServing {
-    public private(set) var makeCallCount = 0
-    public init() {}
+public final class StubAuthServing: FeatureAuthServing {
+    public var isLoggedIn: Bool
 
-    public func makeEntryViewController() -> UIViewController {
-        makeCallCount += 1
+    public private(set) var logoutCallCount = 0
+    public private(set) var handledURLs: [URL] = []
+
+    public init(isLoggedIn: Bool = true) {
+        self.isLoggedIn = isLoggedIn
+    }
+
+    public func makeLoginViewController(actions: FeatureAuthCoordinatorActions?) -> UIViewController {
         let viewController = UIViewController()
         viewController.view.backgroundColor = .systemBackground
-        viewController.title = "Stub FeatureAuth"
+        viewController.title = "Stub Login"
+
         return viewController
     }
+
+    @discardableResult
+    public func handleOAuthCallback(_ url: URL) -> Bool {
+        handledURLs.append(url)
+        return url.scheme == AuthCallback.scheme
+    }
+
+    public func logout() {
+        logoutCallCount += 1
+        isLoggedIn = false
+    }
 }
+
