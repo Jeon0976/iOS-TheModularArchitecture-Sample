@@ -9,10 +9,10 @@
 > **다루는 질문** - 이 레포를 열면 거의 모든 타입이 `Sendable`을 채택하거나 요구한다.
 >
 > - Sendable이 뭐고, 왜 "대부분" 채택하게 됐나?
-> - 판정 규칙의 일반론은 범위 밖이다 - 그 규칙이 **실제 코드베이스에서 어떤 모습으로 나타나는지**를 파일 단위로 훑는다.
-> - **한 줄 결론**: Sendable은 "이 타입의 값은 **동시성 경계(격리 도메인 사이)를 건너도 데이터 레이스가 없다**"는 컴파일 타임 증명이다.
-> - 이 앱은 **@MainActor(UI) <-> nonisolated(네트워크)를 값이 끊임없이 왕복하는 구조**라서 경계를 건너는 타입 전부에 증명이 필요했다 - "많이 채택했다"가 아니라 **"경계가 많은 설계라서 증명이 많이 필요했다"**가 정확한 인과다.
-> - 채택 자체는 목표가 아니다 - 경계를 안 건너는 타입(ViewController들)은 채택하지 않는다.
+> - Sendable의 모든 판정 규칙을 설명하기보다는, 이 코드베이스에서 어떻게 사용했는지를 파일 단위로 살펴본다.
+> - **한 줄 결론**: Sendable은 타입의 값을 다른 동시성 컨텍스트로 전달해도 데이터 레이스 위험이 없도록 컴파일러가 검사하는 프로토콜이다.
+> - 이 앱은 **@MainActor(UI)와 nonisolated(네트워크) 사이로 값이 자주 오가는 구조**라서 요청과 응답에 사용되는 타입 대부분이 Sendable을 만족해야 했다.
+> - 모든 타입에 붙이는 것이 목표는 아니다. ViewController처럼 @MainActor 안에서만 사용하는 타입에는 필요하지 않다.
 
 ---
 
@@ -21,19 +21,19 @@
 | 질문 | 답 |
 |---|---|
 | Sendable이 뭔가 | [공식 정의](https://developer.apple.com/documentation/swift/sendable): *"A thread-safe type whose values can be shared across arbitrary concurrent contexts without introducing a risk of data races"* - 임의의 동시 컨텍스트로 값을 공유해도 데이터 레이스 위험이 없는 타입. 요구 메서드는 없고, **타입이 조건을 만족하는지를 컴파일러가 검사**한다 |
-| 언제 검사받나 | 값이 **격리 경계를 넘는 순간**만 - actor 메서드 인자/반환, @MainActor <-> nonisolated 사이, `Task {}`/`@Sendable` 클로저 캡처 |
-| 왜 이 앱은 거의 다 채택? | 1) Swift 6 strict concurrency(경계 검사 상시 가동) 2) UI는 @MainActor, 네트워크는 nonisolated - **모든 요청/응답 값이 경계를 왕복** 3) 계약(protocol)이 Sendable을 상속하면 구현체 전원이 증명 대상 |
-| 채택 안 한 것도 있나 | 있다 - ViewController들(경계를 안 넘음, @MainActor 안에서만 삶), ManagedTask(@MainActor 클래스 - 암시적 sendable이라 명시 불필요) |
+| 언제 검사받나 | 값이 **격리 경계를 넘을 때** - actor 메서드의 인자와 반환값, @MainActor와 nonisolated 사이의 전달, `Task {}`/`@Sendable` 클로저의 캡처 |
+| 왜 이 앱은 거의 다 채택? | 1) Swift 6 strict concurrency를 사용하고 2) UI는 @MainActor, 네트워크는 nonisolated로 동작하며 3) 주요 protocol이 Sendable을 상속하기 때문 |
+| 채택하지 않은 타입도 있나 | 있다 - ViewController는 @MainActor 안에서만 사용하고, ManagedTask는 @MainActor class라서 Sendable을 따로 명시하지 않는다 |
 | @unchecked는 뭔가 | "검사를 끄고 **개발자가 책임**진다"는 선언. 공식 문서: *"You are responsible for the correctness of unchecked sendable types, for example, by protecting all access to its state with a lock or a queue"* - 이 앱은 반드시 근거 주석과 함께만 사용 |
 
 ---
 
-## 2. 개념 최소한만 - 증명이 요구되는 순간
+## 2. 개념 최소한만 - Sendable 검사가 필요한 순간
 
-Swift 6의 데이터 레이스 방지 전략은 두 부품이다:
+Swift 6는 데이터 레이스를 막기 위해 크게 두 가지 방식을 사용한다.
 
-1. **격리(isolation)**: 가변 상태를 특정 도메인(actor, @MainActor)에 가둔다 - "상태는 자기 집에서만 만진다"
-2. **Sendable**: 도메인 **사이를 이동하는 값**은 "공유해도 안전한 형태"임을 증명한다 - "집 밖으로 나가는 것은 안전한 것만"
+1. **격리(isolation)**: 가변 상태에 접근할 수 있는 실행 컨텍스트를 actor나 @MainActor로 제한한다.
+2. **Sendable**: 서로 다른 동시성 컨텍스트 사이에서 전달되는 값이 안전한지 컴파일러가 검사한다.
 
 검사는 타입 선언이 아니라 **경계 통과 시점**에 일어난다. 이 앱에서 가장 잦은 경계가 바로 이것:
 
@@ -44,16 +44,16 @@ let page = try await searchUsersUseCase.execute(query:page:perPage:)
 //         -> GithubUsersPage가 Sendable이 아니면 이 줄이 컴파일 에러
 ```
 
-엔티티가 처한 상황이 정확히 이것이다 - 네트워크 Task(백그라운드)에서 만들어져 @MainActor 격리 영역으로 건너온다. Swift 6에서 이 이동은 Sendable 증명 없이는 컴파일되지 않는다.
+엔티티도 같은 과정을 거친다. 네트워크 작업에서 만들어진 값이 @MainActor의 ViewModel로 전달되기 때문에, Swift 6에서는 해당 타입이 Sendable을 만족해야 한다.
 
 > [!TIP] "왜 대부분 채택해야 하는지"의 답
-> 이 아키텍처에서 **UseCase/Repository/NetworkSession/엔티티/DTO/에러**는 전부 "요청-응답 왕복 경로" 위에 있다. 경로 위의 모든 타입이 경계를 넘으므로 전부 증명 대상이다. 반대로 경로 밖(화면 안)에만 사는 타입은 증명이 필요 없다 - 5절. **어떤 타입이 Sendable을 채택하게 되는지는 코드 스타일이 아니라 아키텍처가 경계를 어디에 뒀는가가 결정한다.**
+> 이 아키텍처에서 **UseCase/Repository/NetworkSession/엔티티/DTO/에러**는 요청과 응답이 오가는 경로에 있다. 따라서 이 타입들은 대부분 Sendable을 만족해야 한다. 반대로 화면 안에서만 사용하는 타입은 그렇지 않다(5절). **어떤 타입에 Sendable이 필요한지는 동시성 영역을 어떻게 나눴는지에 따라 결정된다.**
 
 ---
 
-## 3. 런타임에서 컴파일러단으로
+## 3. 실제 코드에서 Sendable을 적용한 방식
 
-### 3-1. 값 타입 - struct/enum은 멤버가 전부 Sendable이면 성립
+### 3-1. 값 타입 - 멤버가 모두 Sendable인 struct와 enum
 
 ```swift
 // FeatureSearch/Domain/Entities/GithubUser.swift
@@ -62,10 +62,10 @@ struct GithubUser: Equatable, Hashable, Sendable {
 }
 ```
 
-- 공식 요건: *"an enumeration or structure must have only sendable members and associated values"* - Int/String/URL 모두 Sendable이므로 성립. **불변(let)+값 타입이면 증명이 공짜**라는 게 "왜 struct-first인가"의 동시성 측 근거다.
-- 명시적으로 `Sendable`을 적는 이유: 암시적 conformance는 **non-public 타입**에만 온다(공식: *"Structures and enumerations that aren't public and aren't marked @usableFromInline"*). 이 워크스페이스는 모듈이 잘게 쪼개져 있어(TMA) public 타입이 많고 public은 **적어야 계약이 된다**. internal이라도 적어두면 "이 타입은 경계를 넘는 용도"라는 의도 문서가 된다.
+- 공식 요건은 *"an enumeration or structure must have only sendable members and associated values"*이다. Int, String, URL이 모두 Sendable이므로 `GithubUser`도 별도 동기화 없이 채택할 수 있다. 불변 값 타입을 우선해서 사용하면 Sendable 요구사항을 만족하기가 수월하다.
+- 암시적 conformance는 **non-public 타입**에만 적용된다(공식: *"Structures and enumerations that aren't public and aren't marked @usableFromInline"*). 이 워크스페이스는 모듈이 잘게 나뉘어 있어 public 타입이 많으므로 `Sendable`을 명시해야 한다. internal 타입에도 적어두면 이 타입이 동시성 영역 사이에서 전달된다는 의도를 코드에 남길 수 있다.
 
-### 3-2. enum + 연관값 - 타입을 좁혀서 증명을 공짜로 만든 사례
+### 3-2. enum + 연관값 - 범용 타입을 구체적인 타입으로 바꾸기
 
 ```swift
 // CoreNetwork/NetworkTask.swift
@@ -75,9 +75,9 @@ public enum NetworkTask: Sendable {
 }
 ```
 
-원본(Clean)은 `[String: Any]`였다 - `Any`는 Sendable 증명이 불가능해서 endpoint가 @MainActor(ViewModel)에서 nonisolated(NetworkSession)로 넘어가는 순간 거부된다. GitHub API 파라미터는 전부 문자열화 가능하므로 `[String: String]`으로 **좁혔다**. 파일 주석의 교훈 그대로: **"타입을 좁히면 동시성 증명이 공짜"**. `any Encodable`도 `any Encodable & Sendable`로 경계를 명시했다.
+기존 구현에서는 파라미터 타입으로 `[String: Any]`를 사용했다. 하지만 `Any`는 Sendable 여부를 컴파일러가 확인할 수 없어서 endpoint를 @MainActor의 ViewModel에서 nonisolated인 NetworkSession으로 전달할 수 없다. GitHub API의 파라미터는 모두 문자열로 표현할 수 있으므로 `[String: String]`으로 바꿨다. `any Encodable` 역시 `any Encodable & Sendable`로 제한했다. 범용 타입이 꼭 필요하지 않다면 구체적인 타입을 사용하는 편이 동시성 검사에도 유리하다.
 
-### 3-3. final class + 전부 let - 참조 타입의 성립 조건 3종 세트
+### 3-3. final class + let - 참조 타입이 Sendable을 채택하는 조건
 
 ```swift
 // CoreNetwork/NetworkSession.swift
@@ -88,31 +88,31 @@ public final class NetworkSession: NetworkRequesting, Sendable {
 }
 ```
 
-공식 요건 그대로: *"a class must: Be marked **final** / Contain only stored properties that are **immutable and sendable** / Have **no superclass** or have NSObject as the superclass."* - NetworkSession/KeychainTokenStorage가 이 3요건의 교과서 케이스다. KeychainTokenStorage의 주석이 좋은 사고 훈련: "실제 상태는 Keychain(시스템)이 들고 있고, 이 객체는 불변 설정값(service/account)뿐" - **상태의 위치**를 물으면 class여도 증명이 성립한다.
+공식 문서에 따르면 class는 **final**이어야 하고, 저장 프로퍼티가 모두 **불변이며 Sendable**이어야 하고, superclass가 없거나 NSObject여야 한다. `NetworkSession`과 `KeychainTokenStorage`가 이 조건을 만족한다. 특히 KeychainTokenStorage가 직접 들고 있는 값은 service와 account 같은 불변 설정뿐이고, 실제 데이터는 시스템 Keychain에 저장된다. 참조 타입을 검토할 때는 가변 상태를 어디에서 관리하는지부터 확인하는 것이 도움이 된다.
 
 ### 3-4. 상태 없는 타입은 struct로 - NetworkLogger
 
-Clean의 `final class NetworkLogger`(상태 없음)를 struct로 바꿨다 - 저장 프로퍼티가 없으니 Sendable이 자동 성립. 주석의 규칙: **"class를 Sendable로 만들려고 고민하기 전에, class일 이유가 있는지부터."**
+기존의 `NetworkLogger`는 상태가 없는 `final class`였다. 이를 struct로 바꾸면 저장 프로퍼티가 없기 때문에 자연스럽게 Sendable 조건을 만족한다. 참조 의미가 필요하지 않은 타입이라면 class에 동기화 방식을 덧붙이기 전에 값 타입으로 바꿀 수 있는지 먼저 확인할 만하다.
 
-### 3-5. @Sendable 클로저 - "공유하지 않기"로 우회 (팩토리 클로저 주입)
+### 3-5. @Sendable 클로저 - 인스턴스 대신 팩토리 주입
 
 ```swift
 // NetworkSession.init
 makeDecoder: @Sendable @escaping () -> JSONDecoder = { JSONDecoder() }
 ```
 
-인스턴스 하나를 세션이 들고 여러 Task에서 공유하는 대신, **"만드는 법"(@Sendable 클로저)을 공유하고 값은 요청마다 새로 만든다** - 공유가 없으면 레이스도 없다. 공식 요건: *"Any values that the function or closure captures must be sendable... sendable closures must use only by-value captures."* non-Sendable 타입을 만났을 때의 3지선다(1) 격리에 가둔다 2) 매번 만든다 3) @unchecked) 중 2)의 실물.
+세션이 인스턴스 하나를 여러 Task에서 공유하는 대신, 생성 클로저를 주입하고 요청마다 새 인스턴스를 만든다. 공유되는 가변 상태가 없으므로 데이터 레이스를 피할 수 있다. 공식 문서도 @Sendable 클로저가 캡처하는 값은 Sendable이어야 하며 값 캡처만 사용해야 한다고 설명한다. non-Sendable 타입을 다뤄야 한다면 특정 actor에 격리하거나, 매번 새로 만들거나, 동기화를 직접 보장하고 @unchecked를 사용하는 방법을 검토할 수 있다. 이 코드는 두 번째 방법을 택했다.
 
 > [!WARNING] 2026-07 검증 업데이트 - JSONDecoder는 이제 Sendable이다
-> Swift 6.3.2 SDK에서 직접 컴파일 검증: swift-foundation 재작성으로 JSONDecoder가 가변 설정을 **내부 락으로 보호**해 checked Sendable이 됐다 - `let decoder: JSONDecoder` 직접 저장도 통과한다 ("가변 상태는 락으로 보호해 checked로 만든다"는 방향이 Foundation 자신에 적용된 사례). 그래도 이 패턴이 남는 이유: a) 공유 인스턴스의 설정을 요청 도중 바꾸면 락 덕에 크래시는 없지만 **결과가 타이밍에 좌우되는 논리 레이스**는 남는다(data race 안전 != race condition 안전) - 매번 생성은 이 가능성 자체를 제거 b) 구세대 SDK 호환. 즉 이 패턴은 "필수"에서 "선택"이 됐고, 여기서 남는 교훈은 하나다: **Sendable 판정은 SDK 버전에 따라 바뀐다 - 단정하기 전에 컴파일러에게 물어라.**
+> Swift 6.3.2 SDK에서 컴파일해 본 결과, swift-foundation으로 다시 작성된 JSONDecoder는 가변 설정을 내부 락으로 보호하며 checked Sendable을 채택한다. 따라서 `let decoder: JSONDecoder`를 직접 저장해도 컴파일된다. 다만 요청 처리 중 공유 인스턴스의 설정을 바꾸면 데이터 레이스는 막더라도 결과가 실행 순서에 따라 달라질 수 있다. 요청마다 생성하면 이런 상황을 피할 수 있고 구형 SDK와도 호환된다. 이 패턴은 이제 필수가 아니라 선택에 가깝다. SDK에 따라 Sendable 채택 여부가 달라질 수 있으므로 실제 지원 환경에서 컴파일해 확인해야 한다.
 
-@Sendable 요구는 **클로저(캡처)에만** 걸린다는 것도 포인트 - 반환값(JSONDecoder)은 non-Sendable이어도 됐다. 호출한 쪽 격리 영역에서 갓 태어난 값은 어디와도 참조를 공유하지 않아(분리된 region, SE-0414) 그 자리에서 쓰는 데 증명이 필요 없기 때문.
+@Sendable 요구사항은 클로저와 클로저가 캡처한 값에 적용된다. 반환값은 별개의 문제다. 호출한 영역에서 새로 생성한 값이 다른 곳과 참조를 공유하지 않는다면, region isolation(SE-0414)에 따라 그 자리에서 사용할 수 있다.
 
 ---
 
-## 4. 계약과 책임
+## 4. protocol과 @unchecked Sendable
 
-### 4-1. protocol이 Sendable을 상속 - 구현체 전원 소집
+### 4-1. protocol이 Sendable을 상속하면
 
 ```swift
 public protocol NetworkRequesting: Sendable { ... }     // CoreNetwork
@@ -122,36 +122,36 @@ public protocol RequestInterceptor: Sendable { ... }    // Pipeline
 public protocol NetworkEventMonitor: Sendable { ... }
 ```
 
-계약이 Sendable을 상속하면 **모든 구현체가 증명 대상**이 된다. 왜 계약 레벨에서 못박나 - 이 계약들의 값은 **필연적으로** 경계를 넘기 때문이다: `any NetworkRequesting`은 @MainActor의 조립부(AppContainer)에서 만들어져 Repository들(nonisolated)로 주입되고, endpoint는 ViewModel에서 만들어져 세션으로 넘어간다. "이 계약을 구현하려면 스레드 안전해야 한다"가 **타입 시그니처로 문서화**된 것. 구현하는 쪽(StubNetworkRequesting 같은 테스트 대역까지)이 강제로 같은 규칙을 지키게 되는 것이 부수 효과이자 의도다.
+protocol이 Sendable을 상속하면 모든 구현체도 Sendable을 만족해야 한다. 위 protocol들은 실제로 동시성 영역을 넘나드는 타입을 표현하므로 protocol 선언에서부터 이 요구사항을 명시했다. `any NetworkRequesting`은 @MainActor의 `AppContainer`에서 만들어져 nonisolated인 Repository에 주입되고, endpoint는 ViewModel에서 만들어져 NetworkSession으로 전달된다. 테스트용 `StubNetworkRequesting`도 같은 조건을 따라야 하므로 실제 구현과 테스트 대역 사이의 차이도 줄일 수 있다.
 
 ### 4-2. @unchecked Sendable - 검사를 끄되 근거를 남긴다
 
-공식 문서의 책임 조항: *"To declare conformance to Sendable **without any compiler enforcement**, write @unchecked Sendable. **You are responsible for the correctness**... for example, by protecting all access to its state with a lock or a queue."*
+공식 문서는 `@unchecked Sendable`을 사용하면 컴파일러 검사가 적용되지 않으며, 락이나 큐로 상태 접근을 보호하는 책임이 개발자에게 있다고 설명한다.
 
-이 레포의 @unchecked는 프로덕션 3곳 + 테스트 대역 5곳 - 전부 "가변 상태 + 수동 동기화 + 근거 주석" 패턴이다. 프로덕션 3곳:
+이 레포에서는 프로덕션 코드 3곳과 테스트 대역 5곳에서 `@unchecked Sendable`을 사용한다. 모두 가변 상태를 수동으로 동기화하며, 왜 안전한지 주석으로 남겨 두었다. 프로덕션 코드의 사용처는 다음과 같다.
 
-| 타입 | 가변 상태 | 동기화 수단 | 성립 근거 |
+| 타입 | 가변 상태 | 동기화 수단 | 안전성 근거 |
 |---|---|---|---|
 | `UserVolatileStorage` (Profile/Data) | user 캐시 | `NSLock` | 모든 접근이 lock으로 직렬화 |
-| `InMemoryProfileCache` (Search/Data) | NSCache | NSCache 자체 | 문서가 스레드 안전을 보장하지만 컴파일러는 그걸 모르는 참조 타입 멤버로 본다 - 개발자가 근거를 적고 책임진다 |
+| `InMemoryProfileCache` (Search/Data) | NSCache | NSCache 자체 | NSCache는 문서상 스레드 안전하지만 컴파일러가 이를 확인할 수 없어 주석으로 근거를 남김 |
 | `DiskProfileCache` (Search/Data) | 파일 시스템 | `NSLock`(withLock) | 개별 FileManager 호출은 안전하지만 다단계 쓰기의 불변식은 락이 지킨다 |
 
-테스트 대역 5곳(`StubNetworkRequesting`/`MockTokenStorage`/`RoutingStubSession`/목 세션 2종)도 같은 NSLock 패턴이다 - 대역이라도 프로덕션과 같은 경계를 통과해야 하므로 같은 규칙을 지킨다.
+테스트 대역 5곳(`StubNetworkRequesting`/`MockTokenStorage`/`RoutingStubSession`/목 세션 2종)도 NSLock으로 상태 접근을 보호한다. 테스트 코드도 프로덕션 코드와 같은 동시성 영역을 오가기 때문이다.
 
-프로젝트 규약이 한 줄로 요약된다: **"근거 없는 @unchecked 금지 - 근거를 적는 것까지가 규약."**
+프로젝트에서는 `@unchecked Sendable`을 사용할 때 동기화 방식과 안전하다고 판단한 근거를 반드시 주석으로 남긴다.
 
-> [!WARNING] @unchecked의 진짜 비용
-> 컴파일러 검사가 꺼지는 것은 그 타입 **내부 전체**다. 나중에 누가 lock 없는 프로퍼티를 추가해도 에러가 안 난다. 그래서 @unchecked 타입은 **작게 유지**하는 것이 두 번째 규칙 - 이 레포의 해당 타입들은 전부 한 화면 안에 들어오는 크기다.
+> [!WARNING] @unchecked를 사용할 때 주의할 점
+> `@unchecked Sendable`을 선언하면 컴파일러는 그 타입 내부의 동시성 안전성을 더 이상 검사하지 않는다. 나중에 락으로 보호하지 않은 프로퍼티를 추가해도 오류가 발생하지 않는다. 그래서 이 레포에서는 해당 타입의 역할과 크기를 작게 유지한다.
 
 ---
 
 ## 5. 채택하지 **않은** 것들
 
-"거의 다 채택"의 반례들이 Sendable의 의미를 오히려 선명하게 한다.
+모든 타입에 Sendable이 필요한 것은 아니다. 이 레포에서 채택하지 않은 사례도 함께 살펴본다.
 
 ### 5-1. ViewController들 - 경계를 넘지 않는 값
 
-`SearchUserViewController` 등 화면들은 Sendable이 아니다(그리고 될 수도 없다 - UIViewController 상속, 가변 프로퍼티 투성이). **문제가 안 되는 이유**: 이 객체들은 @MainActor 안에서 태어나 살다 죽는다. 값이 경계를 넘지 않으면 증명이 필요 없다 - Sendable은 "모든 타입의 덕목"이 아니라 **여행자의 여권**이다.
+`SearchUserViewController` 같은 화면 객체는 Sendable이 아니다. UIViewController를 상속하고 가변 프로퍼티도 많이 갖기 때문에 Sendable로 만들 필요도, 만들 이유도 없다. 이 객체들은 생성부터 해제까지 @MainActor 안에서만 사용되므로 다른 동시성 영역으로 전달되지 않는다.
 
 ### 5-2. @MainActor 클래스 - 암시적으로 이미 sendable
 
@@ -160,78 +160,78 @@ public protocol NetworkEventMonitor: Sendable { ... }
 @MainActor public final class ManagedTask { ... }
 ```
 
-공식 문서: *"Classes marked with @MainActor are **implicitly sendable**, because the main actor coordinates all access to its state. These classes **can have stored properties that are mutable and nonsendable**."* - 가변 상태가 있어도 성립하는 이유는 "공유해도 안전"의 두 번째 달성 방법(2절의 격리)을 썼기 때문: 상태 접근이 전부 메인 액터로 직렬화되므로 참조 자체는 어디로 건너가도 안전하다. actor가 전부 암시적 Sendable인 것과 같은 원리(공식: *"All actor types implicitly conform to Sendable"*).
+공식 문서에 따르면 @MainActor class는 메인 액터가 모든 상태 접근을 조정하기 때문에 암시적으로 Sendable이다. 가변 프로퍼티나 non-Sendable 프로퍼티가 있어도 접근이 메인 액터로 직렬화된다. 모든 actor 타입이 암시적으로 Sendable을 채택하는 것과 같은 원리다.
 
-즉 이 코드베이스의 진짜 그림은 "전부 Sendable"이 아니라 **이층 구조**다:
+이 코드베이스는 크게 두 영역으로 나눌 수 있다.
 
 ```
-@MainActor 층 (UI/ViewModel/ManagedTask)  <- 격리로 안전 (암시적 sendable, 가변 OK)
+@MainActor 영역 (UI/ViewModel/ManagedTask)  <- 메인 액터로 격리 (암시적 Sendable, 가변 상태 허용)
 ---------- 경계 (모든 요청/응답이 통과) ----------
-nonisolated 층 (UseCase/Repo/Network/엔티티) <- Sendable 증명으로 안전 (불변 값 위주)
+nonisolated 영역 (UseCase/Repo/Network/엔티티) <- Sendable을 만족하는 불변 값 위주
 ```
 
-### 5-3. nonisolated(unsafe) - Sendable의 사촌 격 탈출구
+### 5-3. nonisolated(unsafe) - 격리 검사를 직접 해제하는 방법
 
-`nonisolated(unsafe)`는 Sendable과 짝을 이루는 "격리 검사 끄기"다 (@unchecked가 "타입 검사 끄기"인 것처럼). 같은 규약 적용 - 근거 없이는 금지. 이 레포의 nonisolated(unsafe)는 **0곳**이다 - 후보였던 ManagedTask.task조차 실측(Swift 6.3.2)으로 불필요함이 확인됐다: deinit의 저장 프로퍼티 직접 접근은 허용된다(금지는 격리 *호출*뿐 - 7-2절). 상세는 [managedtask](managedtask.md) 5-1절.
+`nonisolated(unsafe)`를 사용하면 격리 검사를 직접 해제할 수 있다. `@unchecked Sendable`과 마찬가지로 안전성을 컴파일러 대신 개발자가 책임져야 하므로, 이 레포에서는 명확한 근거 없이는 사용하지 않는다. 현재 사용한 곳은 없다. 후보였던 `ManagedTask.task`도 Swift 6.3.2에서 컴파일해 확인한 결과 필요하지 않았다. deinit에서는 저장 프로퍼티에 직접 접근할 수 있고, 제한되는 것은 격리된 메서드 호출이기 때문이다(7-2절). 자세한 내용은 [managedtask](managedtask.md) 5-1절에 정리했다.
 
 ---
 
-## 6. 판정 흐름 요약 - 새 타입을 만들 때
+## 6. 새 타입을 만들 때 확인할 순서
 
 ```
 이 타입의 값이 격리 경계를 넘는가?
 |- 아니오 -> Sendable 불필요 (ViewController 케이스)
 `- 예 ->
-   |- @MainActor/actor로 격리 가능한가? -> 격리하면 암시적 sendable (ViewModel 케이스)
+   |- @MainActor/actor로 격리 가능한가? -> 격리하면 암시적 Sendable (ViewModel 케이스)
    |- 값 타입 + 전 멤버 Sendable? -> : Sendable 한 줄 (엔티티/DTO 케이스)
    |    `- 멤버 중 non-Sendable이 있다 -> 타입을 좁힐 수 있나? ([String: Any]->[String: String] 케이스)
    |- class인가? -> final + 전부 let + Sendable 멤버로 만들 수 있나? (NetworkSession 케이스)
    |    `- 애초에 class일 이유가 있나? (NetworkLogger -> struct 케이스)
    |- 공유하지 않고 매번 만들면 되나? -> @Sendable 팩토리 (JSONDecoder 케이스)
-   `- 가변 상태 + 수동 동기화가 불가피한가? -> @unchecked + 락 + 근거 주석 + 작게 (캐시/스텁 케이스)
+   `- 가변 상태 + 수동 동기화가 불가피한가? -> @unchecked + 락 + 근거 주석, 타입은 작게 유지 (캐시/스텁 케이스)
 ```
 
 ---
 
-## 7. Swift 6 심화 - 경계를 다루는 장치들
+## 7. 함께 사용한 Swift 6 동시성 기능
 
-Sendable은 Swift 6 동시성 장치의 하나일 뿐이다. 이 레포가 함께 쓰는 나머지 장치들을 실물과 같이 정리한다.
+Sendable 외에도 Swift 6의 동시성 검사를 구성하는 기능이 몇 가지 더 있다. 이 레포에서 사용한 사례를 기준으로 정리한다.
 
 ### 7-1. strict concurrency 모드 - 검사를 언제 켜나
 
-검사 강도는 3단계다: `minimal`(명시 채택만 검사) -> `targeted`(동시성 코드 중심) -> `complete`(전 코드 전수 검사). 이 레포는 전 타겟에 `SWIFT_STRICT_CONCURRENCY = complete`를 걸었다(EnvironmentPlugin의 `baseSwiftSettings` - 모듈별 예외 없음). 나중에 켜면 마이그레이션 과제가 되지만 처음부터 켜면 격리 오류가 설계 검토 역할을 한다 - "이 상태의 주인이 누구인가"를 코드를 쓰는 시점에 묻게 된다. Swift 6 언어 모드에서는 complete가 기본이다.
+검사 강도는 `minimal`(명시적으로 채택한 코드 위주), `targeted`(동시성 코드 중심), `complete`(전체 코드 검사) 세 단계다. 이 레포는 모든 타겟에 `SWIFT_STRICT_CONCURRENCY = complete`를 적용했다. 설정은 EnvironmentPlugin의 `baseSwiftSettings`에 있고 모듈별 예외는 두지 않았다. 프로젝트 초기에 이 옵션을 켜 두면 격리 오류를 발견할 때마다 상태를 어느 타입과 actor가 관리해야 하는지 함께 검토할 수 있다. Swift 6 언어 모드에서는 complete가 기본이다.
 
 - [Migrating to Swift 6 - swift.org](https://www.swift.org/migration/documentation/migrationguide/) - 모드별 의미와 이행 전략
 
 ### 7-2. nonisolated async - off-main의 언어 규칙 (SE-0338)
 
-nonisolated async 함수의 본문은 **호출자의 액터가 아니라 협조적 스레드 풀에서 돈다**. @MainActor인 코드가 `await`로 불러도 함수 본문은 메인 밖이다 - 별도 GCD 호출 없이 CPU 작업이 자동으로 off-main이 된다.
+SE-0338 규칙에서 nonisolated async 함수의 본문은 호출자의 actor가 아니라 협조적 스레드 풀에서 실행된다. @MainActor 코드가 `await`로 호출해도 함수 본문은 main actor 밖에서 실행되므로, 별도의 GCD 호출 없이 CPU 작업을 분리할 수 있다.
 
-- 실물: [`ImageDownsampler.makeImage`](../../Projects/Feature/FeatureSearch/Sources/Presentation/ImageLoading/ImageDownsampler.swift) - 이미지 디코딩이 협조적 풀에서 돌아 스크롤을 막지 않는다 (상세는 [이미지-파이프라인](이미지-파이프라인.md) 5절)
-- 버전 단서: **SE-0461**(Swift 6.2)이 이 기본을 "호출자의 액터에서 실행"으로 뒤집는다 - 이후 off-main이 필요한 함수는 `@concurrent`를 명시하는 방향이다. 언어 모드 이행 시 재확인 지점.
-- deinit 예외 하나: deinit은 격리 밖에서 돌지만 **저장 프로퍼티 직접 접근은 허용**된다 - deinit 시점엔 참조가 유일해서 배타 접근이 SE-0327의 규칙으로 증명되기 때문. `ManagedTask`의 `deinit { task?.cancel() }`이 합법인 이유다.
+- 사용 예: [`ImageDownsampler.makeImage`](../../Projects/Feature/FeatureSearch/Sources/Presentation/ImageLoading/ImageDownsampler.swift) - 이미지 디코딩이 협조적 스레드 풀에서 실행되어 스크롤을 막지 않는다(자세한 내용은 [이미지-파이프라인](이미지-파이프라인.md) 5절).
+- 다만 **SE-0461**(Swift 6.2)에서는 기본 동작이 "호출자의 actor에서 실행"으로 바뀐다. 이후 언어 모드에서 main actor 밖의 실행이 필요하다면 `@concurrent`를 명시해야 하므로 마이그레이션할 때 다시 확인해야 한다.
+- deinit은 격리 밖에서 실행되지만 **저장 프로퍼티에는 직접 접근할 수 있다**. deinit 시점에는 해당 참조에 배타적으로 접근할 수 있다는 SE-0327의 규칙이 적용된다. 따라서 `ManagedTask`의 `deinit { task?.cancel() }`은 허용된다.
 
 - [SE-0338 - Clarify the Execution of Non-Actor-Isolated Async Functions](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0338-clarify-execution-non-actor-async.md)
 - [SE-0461 - Run nonisolated async functions on the caller's actor by default](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0461-async-function-isolation.md)
 - [SE-0327 - On Actors and Initialization](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0327-actor-initializers.md)
 
-### 7-3. sending - Sendable 없이 경계 넘기 (SE-0430 / SE-0414)
+### 7-3. sending - Sendable이 아닌 값을 전달하기 (SE-0430 / SE-0414)
 
-Sendable이 유일한 통행증은 아니다. **region isolation**(SE-0414)은 컴파일러가 값의 참조 그물(region)을 추적해서 다른 곳과 얽히지 않은 값이라면 non-Sendable이어도 격리 경계를 넘게 해 준다. `sending`(SE-0430)은 그 이양을 함수 시그니처에 표기하는 키워드다 - "이 값을 보내고 나면 보낸 쪽은 다시 만지지 않는다".
+Sendable이 아닌 값도 조건에 따라 다른 격리 영역으로 전달할 수 있다. **region isolation**(SE-0414)은 컴파일러가 값의 참조 관계를 추적해 다른 곳과 공유되지 않는 값인지 판단한다. `sending`(SE-0430)은 값을 전달한 뒤 호출한 쪽에서 다시 사용하지 않는다는 조건을 함수 시그니처에 표시한다.
 
 ```swift
-// ImageDownsampler - non-Sendable UIImage를 경계 너머로
+// ImageDownsampler - non-Sendable UIImage를 호출한 쪽으로 전달
 static func makeImage(...) async -> sending UIImage?
 ```
 
-UIImage는 가변 참조 타입이라 Sendable로 만들 수 없다. 그런데 협조적 풀에서 갓 만들어진 UIImage는 어디와도 참조를 공유하지 않으므로, **공유(Sendable)가 아니라 이양(sending)** 으로 @MainActor에 넘긴다. 두 장치는 해법의 축이 다르다 - Sendable은 "공유해도 안전", sending은 "소유를 넘기니 안전".
+UIImage는 가변 참조 타입이므로 Sendable을 채택할 수 없다. 하지만 협조적 스레드 풀에서 새로 만든 UIImage가 다른 곳과 참조를 공유하지 않는다면 `sending` 결과로 @MainActor에 전달할 수 있다. Sendable은 여러 동시성 영역에서 값을 공유할 수 있음을 나타내고, sending은 기존 영역에서 더 이상 사용하지 않는 조건으로 값을 넘긴다는 차이가 있다.
 
 - [SE-0430 - `sending` parameter and result values](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0430-transferring-parameters-and-results.md)
 - [SE-0414 - Region based Isolation](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0414-region-based-isolation.md)
 
-### 7-4. 장치 지도 - 언제 무엇을 쓰나
+### 7-4. 상황별 선택
 
-| 상황 | 장치 | 이 레포의 실물 |
+| 상황 | 장치 | 이 레포의 사용 예 |
 |---|---|---|
 | 값이 경계를 자주 왕복한다 | Sendable (불변 값 타입) | 엔티티/DTO/에러 |
 | 가변 상태를 한 곳에 가둔다 | @MainActor / actor | ViewModel/ManagedTask |
@@ -243,32 +243,32 @@ UIImage는 가변 참조 타입이라 Sendable로 만들 수 없다. 그런데 �
 
 ## 8. 정리
 
-- Sendable은 값이 동시성 경계를 넘어도 데이터 레이스가 없다는 컴파일 타임 증명이다. 이 구조는 UI가 @MainActor, 네트워크가 nonisolated라서 모든 요청/응답 값이 경계를 왕복하고, 그 경로 위의 타입(엔티티, DTO, UseCase, Repository, 세션) 전부가 증명 대상이 된다.
-- 값 타입은 불변으로 설계해 증명을 공짜로 얻고, protocol에 Sendable을 상속시켜 구현체가 같은 규칙을 강제받게 했다. 반대로 경계를 안 넘는 ViewController는 채택하지 않았고, ViewModel은 @MainActor 격리라 암시적으로 Sendable이 되어 명시가 필요 없다. Sendable이 많아진 건 스타일 문제가 아니라 경계를 어디에 뒀는가의 결과다.
-- 가변 상태가 불가피한 캐시류만 @unchecked + 락 + 근거 주석으로 예외를 열되, 타입을 작게 유지해 검사 공백을 최소화했다.
+- Sendable은 타입의 값을 다른 동시성 컨텍스트로 전달해도 안전한지 컴파일러가 확인할 수 있게 한다. 이 앱은 UI가 @MainActor, 네트워크가 nonisolated로 동작하므로 요청과 응답에 포함되는 엔티티, DTO, UseCase, Repository, 세션 대부분이 Sendable을 만족해야 한다.
+- 값 타입은 가능한 한 불변으로 만들고, 동시성 영역을 오가는 protocol은 Sendable을 상속하도록 했다. 반대로 ViewController는 @MainActor 안에서만 사용하므로 채택하지 않았고, ViewModel은 @MainActor에 격리되어 있어 Sendable을 명시할 필요가 없다.
+- 가변 상태가 필요한 캐시와 테스트 대역에서는 `@unchecked Sendable`과 락을 사용했다. 이 경우 동기화 근거를 주석으로 남기고 타입을 작게 유지해 개발자가 직접 확인해야 하는 범위를 줄였다.
 
 보충 정리:
-- **메서드도 없는 프로토콜을 컴파일러가 어떻게 검사하나** - 요구 멤버가 없는 marker protocol이고, 요건은 시그니처가 아니라 타입 구조에 걸린다. conformance를 선언하는 시점에 컴파일러가 저장 프로퍼티들을 검사한다(공식 문서: "semantic requirements that are enforced at compile time"). 같은 파일에서만 선언할 수 있는 것도 그 검사 때문이다.
+- **메서드도 없는 프로토콜을 컴파일러가 어떻게 검사하나** - Sendable은 요구 멤버가 없는 마커 프로토콜이다. 채택을 선언할 때 컴파일러가 타입의 저장 프로퍼티를 검사한다(공식 문서: "semantic requirements that are enforced at compile time"). 같은 파일에서만 채택을 선언할 수 있는 것도 이 검사와 관련이 있다.
 - **@MainActor 클래스는 가변인데 왜 통과하나** - 격리가 접근을 직렬화하기 때문이다 (5-2절).
-- **Any를 못 넘기는 이유** - 전이성: 컨테이너는 내용물까지 Sendable이어야 한다 (3-2절의 [String: Any] 사례).
+- **Any를 못 넘기는 이유** - 컬렉션이 Sendable이려면 그 안에 들어가는 값도 Sendable이어야 한다(3-2절의 `[String: Any]` 사례).
 - **@unchecked 쓰면 끝 아닌가** - 검사가 꺼지는 범위가 타입 내부 전체다. 그래서 "작게 + 근거 주석" 규칙이 따라와야 한다 (4-2절 WARNING).
 ---
 
 ## 9. 참고 자료
 
 **공식 문서**
-- [Sendable - Apple Developer Documentation](https://developer.apple.com/documentation/swift/sendable) - 이 문서의 1차 출처. 정의("thread-safe type... without introducing a risk of data races"), 4대 성립 범주(값 타입 / 불변 참조 타입 / 내부 동기화 참조 타입 / @Sendable 함수/클로저), struct/enum/class별 요건, 암시적 conformance 조건(frozen / non-public), @MainActor 클래스의 암시적 sendable, @unchecked 책임 조항, 같은 파일 선언 규칙
+- [Sendable - Apple Developer Documentation](https://developer.apple.com/documentation/swift/sendable) - 이 문서의 주요 출처. 정의("thread-safe type... without introducing a risk of data races"), 값 타입과 참조 타입의 채택 조건, 암시적 conformance 조건(frozen / non-public), @MainActor class의 암시적 Sendable, @unchecked 사용 시 책임, 같은 파일 선언 규칙
 - [Concurrency - The Swift Programming Language](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/concurrency/) - Sendable Types 절: 격리 모델 안에서의 위치
 - [SE-0302 Sendable and @Sendable closures - Swift Evolution](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0302-concurrent-value-and-concurrent-closures.md) - 설계 동기 원문
-- WWDC22 [Eliminate data races using Swift Concurrency (110351)](https://developer.apple.com/videos/play/wwdc2022/110351/) - "섬과 바다 사이를 건너는 배" 비유의 출처, 격리+Sendable 2부품 모델
+- WWDC22 [Eliminate data races using Swift Concurrency (110351)](https://developer.apple.com/videos/play/wwdc2022/110351/) - 격리와 Sendable을 함께 설명하는 세션
 
-**이 레포의 실물 코드**
-- 공짜 증명: [`GithubUser.swift`](../../Projects/Feature/FeatureSearch/Sources/Domain/Entities/GithubUser.swift), [`NetworkTask.swift`](../../Projects/Core/CoreNetwork/Sources/NetworkTask.swift)(타입 좁히기), [`NetworkSession.swift`](../../Projects/Core/CoreNetwork/Sources/NetworkSession.swift)(final+let, @Sendable 팩토리), [`NetworkLogger.swift`](../../Projects/Core/CoreNetwork/Sources/Pipeline/NetworkLogger.swift)(class->struct)
-- 계약: [`NetworkRequesting.swift`](../../Projects/Core/CoreNetwork/Sources/NetworkRequesting.swift), [`TokenStorage.swift`](../../Projects/Core/CoreStorage/Sources/TokenStorage.swift), [`RequestInterceptor.swift`](../../Projects/Core/CoreNetwork/Sources/Pipeline/RequestInterceptor.swift)
-- 책임: [`UserStorage.swift`](../../Projects/Feature/FeatureProfile/Sources/Data/UserStorage.swift), [`InMemoryProfileCache.swift`](../../Projects/Feature/FeatureSearch/Sources/Data/Cache/InMemoryProfileCache.swift)/[`DiskProfileCache.swift`](../../Projects/Feature/FeatureSearch/Sources/Data/Cache/DiskProfileCache.swift), [`StubNetworkRequesting.swift`](../../Projects/Core/CoreNetwork/Testing/Sources/StubNetworkRequesting.swift)(@unchecked 실물)
-- 반례: ViewController들(불필요), ViewModel들(@MainActor 암시)
+**이 레포의 관련 코드**
+- 기본 채택 사례: [`GithubUser.swift`](../../Projects/Feature/FeatureSearch/Sources/Domain/Entities/GithubUser.swift), [`NetworkTask.swift`](../../Projects/Core/CoreNetwork/Sources/NetworkTask.swift)(타입 좁히기), [`NetworkSession.swift`](../../Projects/Core/CoreNetwork/Sources/NetworkSession.swift)(final+let, @Sendable 팩토리), [`NetworkLogger.swift`](../../Projects/Core/CoreNetwork/Sources/Pipeline/NetworkLogger.swift)(class->struct)
+- protocol: [`NetworkRequesting.swift`](../../Projects/Core/CoreNetwork/Sources/NetworkRequesting.swift), [`TokenStorage.swift`](../../Projects/Core/CoreStorage/Sources/TokenStorage.swift), [`RequestInterceptor.swift`](../../Projects/Core/CoreNetwork/Sources/Pipeline/RequestInterceptor.swift)
+- 수동 동기화: [`UserStorage.swift`](../../Projects/Feature/FeatureProfile/Sources/Data/UserStorage.swift), [`InMemoryProfileCache.swift`](../../Projects/Feature/FeatureSearch/Sources/Data/Cache/InMemoryProfileCache.swift)/[`DiskProfileCache.swift`](../../Projects/Feature/FeatureSearch/Sources/Data/Cache/DiskProfileCache.swift), [`StubNetworkRequesting.swift`](../../Projects/Core/CoreNetwork/Testing/Sources/StubNetworkRequesting.swift)(@unchecked 사용 예)
+- 채택하지 않은 사례: ViewController들(불필요), ViewModel들(@MainActor로 암시적 채택)
 
 **관련 노트**
-- [managedtask](managedtask.md) - unstructured Task의 취소 규칙, deinit 격리 예외의 실물
-- [이미지-파이프라인](이미지-파이프라인.md) - nonisolated async/sending이 실전에서 맞물리는 자리
+- [managedtask](managedtask.md) - unstructured Task의 취소 규칙과 deinit 격리 예외
+- [이미지-파이프라인](이미지-파이프라인.md) - nonisolated async와 sending을 함께 사용
 - [owner-패턴](owner-패턴.md) - 비-Sendable owner가 격리 안에 머물러 컴파일되는 원리
