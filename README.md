@@ -94,7 +94,7 @@ Projects/
 
 ### 구현 노트
 
-구현하면서 주제별로 정리한 상세 노트를 [docs/](docs/README.md)에 모아 두었습니다 - 인터셉터 파이프라인, ManagedTask, owner 패턴, Keychain, 이미지 파이프라인, weak let, Swift 6 심화 등 8편. 각 노트가 이 레포의 실제 소스 파일로 링크됩니다.
+구현하면서 주제별로 정리한 상세 노트를 [docs/](docs/README.md)에 모아 두었습니다 - [인터셉터 파이프라인](docs/notes/인터셉터-파이프라인.md), [멱등 재시도](docs/notes/멱등-재시도.md), [ManagedTask](docs/notes/managedtask.md), [owner 패턴](docs/notes/owner-패턴.md), [Keychain](docs/notes/keychain.md), [이미지 파이프라인](docs/notes/이미지-파이프라인.md), [weak let](docs/notes/weak-let-생성자-주입.md), [Swift 6 심화](docs/notes/swift6-sendable.md) 8편. 각 노트가 이 레포의 실제 소스 파일로 링크됩니다.
 
 ---
 

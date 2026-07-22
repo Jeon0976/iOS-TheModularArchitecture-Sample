@@ -94,7 +94,7 @@ These rules are enforced by build settings, not by documentation. For example, F
 
 ### Implementation Notes
 
-Detailed notes written while building each module live in [docs/](docs/README.en.md) - interceptor pipeline, ManagedTask, owner pattern, Keychain, image pipeline, weak let, and a Swift 6 deep dive (8 notes, bodies in Korean). Each note links back to the actual source files in this repo.
+Detailed notes written while building each module live in [docs/](docs/README.en.md) - [interceptor pipeline](docs/notes/인터셉터-파이프라인.md), [idempotency & retry](docs/notes/멱등-재시도.md), [ManagedTask](docs/notes/managedtask.md), [owner pattern](docs/notes/owner-패턴.md), [Keychain](docs/notes/keychain.md), [image pipeline](docs/notes/이미지-파이프라인.md), [weak let](docs/notes/weak-let-생성자-주입.md), and a [Swift 6 deep dive](docs/notes/swift6-sendable.md) (8 notes, bodies in Korean). Each note links back to the actual source files in this repo.
 
 ---
 
