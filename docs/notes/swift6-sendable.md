@@ -2,7 +2,7 @@
 # Sendable
 
 > [!NOTE]
-> 2026-07-10에 처음 쓰고 이관하며 Swift 6 심화 절(7절)을 보강한 학습 노트다 (노트 톤 그대로 옮김).
+> 2026-07-10, Swift 6 관련 노트
 > 관련 소스: [GithubUser.swift](../../Projects/Feature/FeatureSearch/Sources/Domain/Entities/GithubUser.swift) / [NetworkSession.swift](../../Projects/Core/CoreNetwork/Sources/NetworkSession.swift) / [ImageDownsampler.swift](../../Projects/Feature/FeatureSearch/Sources/Presentation/ImageLoading/ImageDownsampler.swift)
 
 > [!IMPORTANT]
@@ -51,9 +51,7 @@ let page = try await searchUsersUseCase.execute(query:page:perPage:)
 
 ---
 
-## 3. 실물 투어 1) - 공짜 증명 (컴파일러가 요건을 확인해 주는 것들)
-
-공식 문서의 분류 순서 그대로, 이 코드베이스의 실물을 배치한다.
+## 3. 런타임에서 컴파일러단으로
 
 ### 3-1. 값 타입 - struct/enum은 멤버가 전부 Sendable이면 성립
 
@@ -112,7 +110,7 @@ makeDecoder: @Sendable @escaping () -> JSONDecoder = { JSONDecoder() }
 
 ---
 
-## 4. 실물 투어 2) - 계약과 책임
+## 4. 계약과 책임
 
 ### 4-1. protocol이 Sendable을 상속 - 구현체 전원 소집
 
@@ -147,7 +145,7 @@ public protocol NetworkEventMonitor: Sendable { ... }
 
 ---
 
-## 5. 실물 투어 3) - 채택하지 **않은** 것들 (여기가 이해의 완성)
+## 5. 채택하지 **않은** 것들
 
 "거의 다 채택"의 반례들이 Sendable의 의미를 오히려 선명하게 한다.
 
