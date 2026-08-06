@@ -165,9 +165,7 @@ owner로 바뀌는 것은 self 멤버뿐입니다. 클로저 밖의 지역 변�
 
 `ManagedTask`가 `@MainActor`이고 `operation`이 `@MainActor (Owner) async throws -> Void`입니다. owner를 만지는 클로저가 전부 MainActor에 격리돼 있다는 뜻입니다. `start`의 `Task { }`도 `@MainActor` 컨텍스트에서 생성되므로 MainActor 실행자를 물려받아 operation이 메인에서 돕니다.
 
-따라서 Sendable이 아닌 `owner`가 격리 경계를 넘는 일이 없습니다. `[weak owner]`로 캡처해서 MainActor 안에서만 씁니다. Swift 6이 Sendable을 요구하는 것은 값이 액터 사이를 건널 때뿐이라 여기서는 그 요구가 발생하지 않습니다.
-
-관건은 `operation`의 `@MainActor`입니다. 이게 없거나 `Task.detached`였다면 Sendable이 아닌 owner가 다른 격리 영역으로 넘어가게 되어 컴파일 에러가 났을 것입니다.
+따라서 Sendable이 아닌 `owner`가 격리 경계를 넘는 일이 없습니다. Swift 6이 Sendable을 요구하는 것은 값이 액터 사이를 건널 때뿐입니다. 관건은 `operation`의 `@MainActor`고, 이게 없거나 `Task.detached`였다면 owner가 다른 격리 영역으로 넘어가 컴파일 에러가 났을 것입니다.
 
 `sink(with:)`는 더 단순합니다. Combine `sink(receiveValue:)`를 감싼 것뿐이고 `object` 캡처는 격리를 넘지 않는 평범한 캡처라 Sendable 요구가 없습니다.
 
@@ -175,9 +173,7 @@ owner로 바뀌는 것은 self 멤버뿐입니다. 클로저 밖의 지역 변�
 
 ## 바뀌지 않는 것
 
-메모리 동작은 그대로입니다. 여전히 `[weak owner]`에 guard고, owner는 클로저가 실행되는 동안만 강참조로 잡혔다 풀립니다. `guard let self`와 완전히 같습니다. 순환 참조도 없습니다. 취소와 `generation` 방어도 non-owner `start`에 위임하므로 그대로입니다.
-
-문법이 줄었을 뿐 새로운 수명 관리 방식이 아닙니다. `[weak self]`가 사라진 게 아니라 API 안쪽으로 이사한 것입니다.
+메모리 동작은 그대로입니다. 여전히 `[weak owner]`에 guard고, owner는 클로저가 실행되는 동안만 강참조로 잡혔다 풀립니다. `guard let self`와 완전히 같아 순환 참조도 없고, 취소와 `generation` 방어도 non-owner `start`에 위임하므로 그대로입니다. `[weak self]`가 사라진 게 아니라 API 안쪽으로 이사한 것입니다.
 
 ---
 

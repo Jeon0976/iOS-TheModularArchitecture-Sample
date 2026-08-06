@@ -4,37 +4,13 @@
 > 2026-07-15, 3개 피처의 actions 주입을 정리하며 쓴 노트.
 > 관련 소스: [ProfileViewModel.swift](../../Projects/Feature/FeatureProfile/Sources/Presentation/ProfileViewModel.swift) / [SearchUserViewModel.swift](../../Projects/Feature/FeatureSearch/Sources/Presentation/SearchUserViewModel.swift) / [LoginViewModel.swift](../../Projects/Feature/FeatureAuth/Sources/Presentation/LoginViewModel.swift)
 
-`actions`를 `private weak let`에 생성자 주입으로 바꿨습니다. 세 가지가 걸렸습니다. 왜 이 조합인가, `weak let`이 되긴 하는가, 프로퍼티 주입과 생성자 주입 중 여기서는 왜 생성자 주입인가.
+`actions`를 `private weak let`에 생성자 주입으로 바꿨습니다.
 
 `actions`는 App이 생성 시점에 한 번 꽂아주고 그 뒤로 바뀌지 않습니다. 캡슐화를 위한 `private`, 불변 바인딩을 위한 `let`, 순환 회피를 위한 `weak`가 전부 맞아떨어집니다. 값을 넣는 통로는 init 하나로 좁혔습니다.
 
-`weak let`은 이 툴체인(Swift 6.3.2)에서 실제로 컴파일됩니다. 바인딩은 불변이지만 대상이 해제되면 ARC가 nil로 만듭니다.
+`weak let`은 [SE-0481](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0481-weak-let.md)로 Swift 6.3부터 허용됩니다. `let`이 고정하는 것은 어느 객체를 가리키느냐는 바인딩이지 그 대상이 살아 있느냐가 아닙니다. 그래서 바인딩이 불변이어도 대상이 해제되면 ARC가 nil로 만듭니다.
 
-여기서 흔한 오해를 하나 짚고 갑니다. weak는 retain 순환을 풀고 프로퍼티 주입은 생성 순환을 풉니다. 둘은 다른 층위의 문제고, 이 코드엔 생성 순환이 없어서 생성자 주입이 깔끔하게 성립했습니다.
-
----
-
-## weak let - 불변 바인딩과 ARC nil-zeroing
-
-`private weak let actions: XxxCoordinatorActions?`에서 세 수식어가 각자 다른 일을 합니다.
-
-`weak`는 참조 강도를 정합니다. `actions`를 강하게 잡지 않아 back-reference가 retain 순환을 만들지 않습니다. 대상이 해제되면 이 참조는 자동으로 nil이 됩니다.
-
-`let`은 바인딩을 고정합니다. 이 프로퍼티가 어느 객체를 가리키는지를 한 번 정하면 못 바꿉니다.
-
-`private`는 가시성을 좁힙니다. 선언 타입과 같은 파일의 확장 밖에서는 이름 자체가 안 보입니다.
-
-여기서 구분이 하나 필요합니다. `let`이 동결하는 것은 어느 객체를 가리키느냐는 바인딩이지, 그 대상이 아직 살아 있느냐는 관찰값이 아닙니다. 그래서 `weak let`이어도 대상이 죽으면 관찰값은 nil로 바뀝니다. 이 두 축이 직교한다는 점이 `weak let`이 성립하는 이유의 전부입니다.
-
-실측으로 확인했습니다. 툴체인 Swift 6.3.2, `-swift-version 6`, arm64 시뮬레이터 기준입니다.
-
-- `private weak let x: T?`에 init 대입은 `-typecheck` exit 0
-- `weak`를 non-optional에 붙이면 "'weak' variable should have optional type" 에러가 납니다. `weak let`은 반드시 Optional이어야 합니다
-- 마지막 강한 참조를 nil로 놓은 뒤 `weak let`의 관찰값이 nil로 zeroing되는 것을 precondition 통과로 확인했습니다. `alive: true, zeroedToNil: true`
-
-근거는 [SE-0481 `weak let`](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0481-weak-let.md)입니다. 제안서 status 필드 원문 기준으로 Implemented (Swift 6.3)입니다. 그 이전에는 `weak`가 mutable 변수를 강제했습니다.
-
-zeroing이 사이드테이블에서 어떻게 일어나는지, Sendable 재설계에서 `weak var`에 `@unchecked`를 강제하던 규칙이 왜 사라졌는지, strong과 unowned와 weak의 `let` 대비, 클로저 캡처 불변화 플래그 같은 언어 이론 축은 별도 주제라 여기서 다루지 않습니다. 이 문서는 왜 이 코드 조직에서 이 패턴을 쓰는지, DI 아키텍처 축만 봅니다.
+흔한 오해를 하나 짚고 갑니다. weak는 retain 순환을 풀고 프로퍼티 주입은 생성 순환을 풉니다. 둘은 다른 층위의 문제고, 이 코드엔 생성 순환이 없어서 생성자 주입이 깔끔하게 성립했습니다.
 
 ---
 
@@ -50,13 +26,13 @@ zeroing이 사이드테이블에서 어떻게 일어나는지, Sendable 재설�
 
 생성자 주입으로 바꾸면 셋이 해결됩니다. 객체가 존재하는 모든 순간 `actions`가 이미 확정돼 nil-창이 사라지고, 주입을 깜빡하면 컴파일 에러라 실수가 불가능하며, 이미 생성자 주입 중인 `useCase`와 방식이 일관됩니다.
 
-생성자 주입을 강제하는 것은 `let`이고 `private`는 그 위에 캡슐화를 더합니다. 사후 대입을 막는 것은 불변성입니다. 실제로 비-private인 `internal weak let`이어도 외부 대입은 `cannot assign to property: 'actions' is a 'let' constant`로 막힙니다. `private`는 여기에 이름 은닉을 더할 뿐입니다. 읽기조차 `'actions' is inaccessible due to 'private' protection level`로 막힙니다. 값을 넣는 통로가 init 파라미터 하나로 좁혀지는 효과는 이 둘의 합이지만, 강제의 뿌리는 `let`입니다.
+사후 대입을 막는 것은 `let`입니다. `internal weak let`이어도 외부 대입은 컴파일 에러고, `private`는 그 위에 이름 은닉을 더할 뿐입니다.
 
 ---
 
 ## 두 개의 순환
 
-여기가 이 문서의 핵심입니다. "weak라서 프로퍼티 주입을 써야 하는 것 아니냐"는 오해를 교정합니다. 순환은 두 종류가 있고 각각 해결 도구가 다릅니다.
+"weak라서 프로퍼티 주입을 써야 하는 것 아니냐"는 오해부터 교정합니다. 순환은 두 종류가 있고 각각 해결 도구가 다릅니다.
 
 | 축 | retain 순환 | 생성 순환 (chicken-egg) |
 |---|---|---|
@@ -135,7 +111,7 @@ public func makeSearchEntryViewController(
 
 ## 왜 이게 개선인가
 
-`let`으로 바인딩을 고정해 "actions가 중간에 바뀌었나"라는 상태 공간 자체를 없앴습니다. 추론이 단순해집니다. 생성자 주입이라 객체가 존재하는 모든 순간 actions가 주입은 돼 있고, 주입을 깜빡하면 컴파일 에러입니다. `private`와 `let` 조합이라 외부에서 갈아끼울 표면이 없고, `useCase`와 방식이 같아졌습니다. `weak`로 자식에서 부모로 가는 역참조를 끊었으니 retain 순환도 안전합니다.
+`let`으로 바인딩을 고정해 "actions가 중간에 바뀌었나"라는 상태 공간 자체를 없앴습니다. 추론이 단순해집니다.
 
 다만 nil-창 제거는 init 시점에 한정됩니다. weak라서 런타임에는 nil이 될 수 있어 "항상 non-nil"은 아닙니다. 아래 비용 항목에서 다시 다룹니다.
 
@@ -153,22 +129,20 @@ public func makeSearchEntryViewController(
 
 **런타임 비용.** weak 참조는 사이드테이블 zeroing 때문에 `unowned`보다 접근과 해제에 약간의 오버헤드가 있습니다.
 
-**최신 Swift 요구.** `weak let`은 SE-0481이 필요합니다. 이 툴체인 6.3.2에서 확인했습니다. 구버전을 지원해야 하면 `private weak var`로 내려갑니다. 바인딩 불변성만 포기하고 생성자 주입과 캡슐화, retain 안전은 유지됩니다.
+**최신 Swift 요구.** `weak let`은 SE-0481이 필요합니다. 구버전을 지원해야 하면 `private weak var`로 내려갑니다. 바인딩 불변성만 포기하고 생성자 주입과 캡슐화, retain 안전은 유지됩니다.
 
 ---
 
 ## 참고 자료
 
 **공식 문서**
-- [SE-0481 - `weak let`](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0481-weak-let.md) - status 필드 원문 "Implemented (Swift 6.3)". `weak let` 허용의 근거
+- [SE-0481 - `weak let`](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0481-weak-let.md) - `weak let` 허용의 근거. Implemented (Swift 6.3)
 - [Automatic Reference Counting - The Swift Programming Language](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/automaticreferencecounting/) - weak 참조의 자동 nil-zeroing
 - [Access Control - The Swift Programming Language](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/accesscontrol/) - `private`의 렉시컬 스코프 가시성
 
 **이 레포의 실물 코드**
 - [`ProfileViewModel.swift`](../../Projects/Feature/FeatureProfile/Sources/Presentation/ProfileViewModel.swift) / [`SearchUserViewModel.swift`](../../Projects/Feature/FeatureSearch/Sources/Presentation/SearchUserViewModel.swift) / [`LoginViewModel.swift`](../../Projects/Feature/FeatureAuth/Sources/Presentation/LoginViewModel.swift) - `private weak let actions` 선언/init/소비처
 - [`FeatureSearchServingImpl.swift`](../../Projects/Feature/FeatureSearch/Sources/Composition/FeatureSearchServingImpl.swift) - 팩토리 시그니처/생성자 주입 전환
-
-검증 툴체인: Apple Swift 6.3.2, `-swift-version 6`, arm64 시뮬레이터. `weak let` typecheck exit 0, 런타임 nil-zeroing 관찰.
 
 ---
 

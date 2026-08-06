@@ -151,7 +151,7 @@ nonisolated 영역 (UseCase/Repo/Network/엔티티) <- Sendable을 만족하는 
 
 `nonisolated(unsafe)`를 쓰면 격리 검사를 직접 해제할 수 있습니다. `@unchecked Sendable`과 마찬가지로 안전성을 컴파일러 대신 개발자가 책임져야 하므로, 이 레포에서는 명확한 근거 없이는 쓰지 않습니다. 현재 쓴 곳은 없습니다.
 
-후보였던 `ManagedTask.task`도 Swift 6.3.2에서 컴파일해 확인한 결과 필요하지 않았습니다. deinit에서는 저장 프로퍼티에 직접 접근할 수 있고 제한되는 것은 격리된 메서드 호출이기 때문입니다. 자세한 내용은 [managedtask](managedtask.md) 노트의 설계 디테일에 정리했습니다.
+후보였던 `ManagedTask.task`도 필요하지 않았습니다. deinit에서는 저장 프로퍼티에 직접 접근할 수 있고 제한되는 것은 격리된 메서드 호출이기 때문입니다(SE-0327). 자세한 내용은 [managedtask](managedtask.md) 노트의 설계 디테일에 정리했습니다.
 
 ---
 
@@ -190,8 +190,6 @@ SE-0338 규칙에서 nonisolated async 함수의 본문은 호출자의 actor가
 
 다만 SE-0461(Swift 6.2)에서는 기본 동작이 호출자의 actor에서 실행하는 쪽으로 바뀝니다. 이후 언어 모드에서 main actor 밖의 실행이 필요하다면 `@concurrent`를 명시해야 하므로 마이그레이션할 때 다시 확인해야 합니다.
 
-deinit은 격리 밖에서 실행되지만 저장 프로퍼티에는 직접 접근할 수 있습니다. deinit 시점에는 해당 참조에 배타적으로 접근할 수 있다는 SE-0327의 규칙이 적용됩니다. 따라서 `ManagedTask`의 `deinit { task?.cancel() }`은 허용됩니다.
-
 - [SE-0338 - Clarify the Execution of Non-Actor-Isolated Async Functions](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0338-clarify-execution-non-actor-async.md)
 - [SE-0461 - Run nonisolated async functions on the caller's actor by default](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0461-async-function-isolation.md)
 - [SE-0327 - On Actors and Initialization](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0327-actor-initializers.md)
@@ -210,29 +208,15 @@ UIImage는 가변 참조 타입이므로 Sendable을 채택할 수 없습니다.
 - [SE-0430 - `sending` parameter and result values](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0430-transferring-parameters-and-results.md)
 - [SE-0414 - Region based Isolation](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0414-region-based-isolation.md)
 
-### 상황별 선택
-
-| 상황 | 장치 | 이 레포의 사용 예 |
-|---|---|---|
-| 값이 경계를 자주 왕복합니다 | Sendable (불변 값 타입) | 엔티티/DTO/에러 |
-| 가변 상태를 한 곳에 가둡니다 | @MainActor / actor | ViewModel/ManagedTask |
-| CPU 작업을 메인 밖으로 | nonisolated async (SE-0338) | ImageDownsampler |
-| non-Sendable 결과물을 반환합니다 | sending (SE-0430) | makeImage -> UIImage |
-| 수동 동기화가 불가피합니다 | @unchecked + 락 + 근거 주석 | 캐시/스텁 |
-
 ---
 
 ## 정리
 
-Sendable은 타입의 값을 다른 동시성 컨텍스트로 전달해도 안전한지 컴파일러가 확인할 수 있게 합니다. 이 앱은 UI가 @MainActor, 네트워크가 nonisolated로 동작하므로 요청과 응답에 포함되는 엔티티와 DTO, UseCase, Repository, 세션 대부분이 Sendable을 만족해야 합니다.
+- 요청과 응답 경로에 있는 타입(엔티티, DTO, UseCase, Repository, 세션)은 경계를 넘으므로 Sendable을 만족해야 합니다. 값 타입은 불변으로 만들고, 경계를 오가는 protocol은 Sendable을 상속하게 했습니다.
+- ViewController는 @MainActor 안에서만 쓰므로 채택하지 않았고, ViewModel은 @MainActor 격리라 명시할 필요가 없습니다.
+- 가변 상태가 필요한 캐시와 테스트 대역에서만 `@unchecked Sendable` + 락을 쓰고, 근거를 주석으로 남기고 타입을 작게 유지했습니다.
 
-값 타입은 가능한 한 불변으로 만들고, 동시성 영역을 오가는 protocol은 Sendable을 상속하도록 했습니다. 반대로 ViewController는 @MainActor 안에서만 쓰므로 채택하지 않았고, ViewModel은 @MainActor에 격리되어 있어 Sendable을 명시할 필요가 없습니다.
-
-가변 상태가 필요한 캐시와 테스트 대역에서는 `@unchecked Sendable`과 락을 썼습니다. 이 경우 동기화 근거를 주석으로 남기고 타입을 작게 유지해 개발자가 직접 확인해야 하는 범위를 줄였습니다.
-
-두 가지를 덧붙입니다. 요구 멤버도 없는 프로토콜을 컴파일러가 어떻게 검사하는지 궁금할 수 있습니다. Sendable은 요구 멤버가 없는 마커 프로토콜이고, 채택을 선언할 때 컴파일러가 타입의 저장 프로퍼티를 검사합니다. 공식 문서도 컴파일 타임에 강제되는 요구사항이라고 적어 두었습니다. 같은 파일에서만 채택을 선언할 수 있는 것도 이 검사와 관련이 있습니다.
-
-그리고 `Any`를 넘길 수 없는 이유는 컬렉션이 Sendable이려면 그 안에 들어가는 값도 Sendable이어야 하기 때문입니다. 앞의 `[String: Any]` 사례가 그것입니다.
+Sendable은 요구 멤버가 없는 마커 프로토콜입니다. 채택을 선언할 때 컴파일러가 저장 프로퍼티를 검사하고, 같은 파일에서만 채택을 선언할 수 있는 것도 이 검사 때문입니다. `Any`를 넘길 수 없는 이유도 같습니다. 컬렉션이 Sendable이려면 안에 들어가는 값도 Sendable이어야 합니다.
 
 ---
 
