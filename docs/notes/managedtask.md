@@ -280,11 +280,11 @@ replace와 runIfIdle을 나눈 이유도 여기서 나옵니다. 검색은 새 �
 - [Concurrency - The Swift Programming Language](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/concurrency/) - Unstructured Concurrency 절: 유연성과 개발자 책임, 부모에서 자식으로의 자동 취소
 - [Task.cancel() - Apple](https://developer.apple.com/documentation/swift/task/cancel()) - 취소의 3효과(깃발/핸들러/자식 취소)
 - [Explore structured concurrency in Swift - WWDC21 10134](https://developer.apple.com/videos/play/wwdc2021/10134/) - structured 우선 원칙, Task 계층
-- [task(id:priority:_:) - Apple](https://developer.apple.com/documentation/swiftui/view/task(id:priority:_:)) - SwiftUI의 프레임워크 차원 해법 (id 변경/뷰 소멸 시 자동 취소)
+- [task(id:...) modifier - Apple](https://developer.apple.com/documentation/swiftui/view/task(id:name:executorpreference:priority:file:line:_:)) - SwiftUI의 프레임워크 차원 해법 (id 변경/뷰 소멸 시 자동 취소)
 
 **참조 구현**
 - [TCA - Effect.cancellable(id:cancelInFlight:)](https://github.com/pointfreeco/swift-composable-architecture) - replace와 같은 동작의 업계 검증 실물
-- RxSwift DisposeBag / Combine `Set<AnyCancellable>` - "수명에 묶인 취소 가방"의 앞 세대들
+- [RxSwift](https://github.com/ReactiveX/RxSwift)의 DisposeBag / [Combine `AnyCancellable`](https://developer.apple.com/documentation/combine/anycancellable) - "수명에 묶인 취소 가방"의 앞 세대들
 
 **이 레포의 실물 코드**
 - [`ManagedTask.swift`](../../Projects/Core/CoreDesignSystem/Sources/Base/ManagedTask.swift) - 본체 (owner 오버로드 포함)
