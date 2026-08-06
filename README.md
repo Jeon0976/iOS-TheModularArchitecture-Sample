@@ -33,7 +33,7 @@
 | 새 기능 추가 | 3개 레이어 모듈 수정 | 모듈 1개 추가, 기존 모듈 무수정 |
 | 기능 단위 테스트/실행 | 레이어가 얽혀 어려움 | 피처별 Tests + Demo 앱 단독 실행 |
 
-중요한 점은 Micro Feature가 Clean을 버리는 것이 아니라 **감싼다**는 것입니다. 피처 모듈 내부는 여전히 Composition / Domain / Data / Presentation으로 나뉩니다. 피처 *사이*만 Interface로 통신합니다.
+Micro Feature는 Clean을 버리지 않고 **감쌉니다**. 피처 모듈 내부는 여전히 Composition / Domain / Data / Presentation으로 나뉩니다. 피처 *사이*만 Interface로 통신합니다.
 
 ---
 
@@ -52,12 +52,12 @@ Projects/
 |   `-- CoreDesignSystem      # Base(MVVM/Coordinator/ManagedTask) + 공용 UI 컴포넌트
 |-- Feature/
 |   |-- FeatureSearch         # 사용자 검색 - 페이징 + 이미지 캐시
-|   |-- FeatureAuth           # GitHub OAuth - 토큰의 주인
+|   |-- FeatureAuth           # GitHub OAuth - 토큰 저장과 갱신 담당
 |   `-- FeatureProfile        # 내 프로필 - 유일한 피처 간 의존 (Auth Interface)
-`-- App/GitSearchApp          # Composition Root - 구현체들이 만나는 유일한 곳
+`-- App/GitSearchApp          # Composition Root - 구현체를 조립하는 유일한 곳
 ```
 
-### 피처당 5타겟
+### 피처마다 같은 타겟 5개
 
 각 피처는 같은 모양의 타겟 5개로 구성됩니다.
 
@@ -69,7 +69,7 @@ Projects/
 | `{Feature}Tests` | 유닛 테스트 | 단위 테스트 |
 | `{Feature}Demo` | 앱 | 피처 단독 실행 데모 - DEV(오프라인 Mock) / PROD(실 API) |
 
-### 의존 규칙 3줄
+### 의존 규칙
 
 1. 피처끼리는 **Interface로만** 의존한다 
    - 구현 타겟을 서로 모른다.
@@ -100,7 +100,7 @@ Projects/
 
 ## Tuist 툴링
 
-수직 절단의 대가는 타겟 수입니다(피처 3개 x 5타겟). 그 보일러플레이트를 로컬 플러그인 4개와 DSL로 줄였습니다.
+수직으로 자르면 타겟이 많아집니다(피처 3개 x 5타겟). 그 보일러플레이트를 로컬 플러그인 4개와 DSL로 줄였습니다.
 
 | 플러그인 | 역할 |
 |----------|------|
@@ -154,15 +154,15 @@ self.profile = FeatureProfileServingImpl(session: session, auth: auth)   // Auth
 
 ### 피처 간 경계 - 로그아웃 3분할
 
-로그아웃 하나에 일이 세 가지인데, 각각 주인이 다릅니다.
+로그아웃 하나에 일이 세 가지인데, 각각 담당이 다릅니다.
 
-| 할 일 | 주인 | 방법 |
+| 할 일 | 담당 | 방법 |
 |-------|------|------|
 | 토큰 삭제 | FeatureAuth | `onLogout` 클로저로 위임 |
 | 유저 캐시 정리 | FeatureProfile | 자기 UseCase (`ClearCachedUserUseCase`) |
 | 화면 전환 | App | `actions.profileDidLogout()` |
 
-전편에서는 앞의 두 가지가 `UserUseCase.logout()` 한 곳에 뭉쳐 있었습니다. 피처로 자르면 "누구의 일인가"가 모듈 경계와 일치하게 됩니다.
+전편에서는 앞의 두 가지가 `UserUseCase.logout()` 한 곳에 뭉쳐 있었습니다. 피처로 자르면 "누구의 일인가"가 모듈 경계와 일치합니다.
 
 ### OAuth 딥링크 흐름
 
@@ -203,7 +203,7 @@ self.profile = FeatureProfileServingImpl(session: session, auth: auth)   // Auth
 
 ### Github 인증 (FeatureAuth)
 - Interface 계약은 4개입니다: `isLoggedIn` / `makeLoginViewController` / `handleOAuthCallback` / `logout`.
-- 인증 URL 생성 > 외부 브라우저 > 딥링크 콜백 > 코드 교환 > Keychain 저장이 전부 피처 내부에서 끝납니다.
+- 인증 URL 생성 -> 외부 브라우저 -> 딥링크 콜백 -> 코드 교환 -> Keychain 저장이 전부 피처 내부에서 끝납니다.
 - OAuth 키(Client ID/Secret)가 없으면 에러 대신 **설정 방법 안내**를 띄웁니다 - 클론해서 바로 실행해도 막히지 않습니다.
 
 ### 사용자 검색 (FeatureSearch)
@@ -212,12 +212,12 @@ self.profile = FeatureProfileServingImpl(session: session, auth: auth)   // Auth
 
 ### 프로필 (FeatureProfile)
 - 조회 경로가 둘입니다: `FetchUserUseCase`(캐시 우선)와 `RefreshUserUseCase`(캐시 무시) - 화면 재진입, 당겨서 새로고침 시 값이 세션 내내 고정되는 문제를 막습니다.
-- 유일한 피처 간 의존(Auth Interface)의 실물이자, 로그아웃 3분할의 주인공입니다.
+- 유일한 피처 간 의존(Auth Interface)의 실물이자, 로그아웃 3분할이 가장 잘 드러나는 곳입니다.
 
 ### 테스트 (24개)
 - **계약 테스트**: `TokenStorage` 계약을 In-memory Mock과 실제 Keychain 구현이 같은 테스트로 통과합니다. Keychain은 호스트 앱이 필요하여 `CoreStorageHostedTests`로 분리했습니다.
 - **라우팅 스텁**: `StubNetworkRequesting`이 결과 주입과 요청 기록(`requestedEndpoints`)을 지원해 Repository가 어떤 엔드포인트를 몇 번 불렀는지까지 검증합니다.
-- `ManagedTask`(재진입 취소/단일 비행) 동작 테스트 5개가 Core에 있습니다.
+- `ManagedTask`(재진입 취소/single-flight) 동작 테스트 5개가 Core에 있습니다.
 
 ---
 
@@ -232,7 +232,7 @@ tuist test                                      # 테스트 24개
 ```
 
 - OAuth 로그인까지 확인하려면 GitHub OAuth App을 만들어 `Secrets.xcconfig`에 `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`을 채웁니다 (callback: `findusername://callback`). 실제 키 파일은 gitignore 대상이며 템플릿만 커밋되어 있습니다.
-- 시크릿은 xcconfig > 빌드 설정 > Info.plist `$(변수)` > `Bundle` 경로로 앱에 주입됩니다. 피처는 값만 받을 뿐 출처를 모릅니다.
+- 시크릿은 xcconfig -> 빌드 설정 -> Info.plist `$(변수)` -> `Bundle` 경로로 앱에 주입됩니다. 피처는 값만 받을 뿐 출처를 모릅니다.
 
 ## 기술 스택
 

@@ -52,9 +52,9 @@ Projects/
 |   `-- CoreDesignSystem      # Base (MVVM/Coordinator/ManagedTask) + shared UI components
 |-- Feature/
 |   |-- FeatureSearch         # User search - pagination + image cache
-|   |-- FeatureAuth           # GitHub OAuth - the owner of the token
+|   |-- FeatureAuth           # GitHub OAuth - owns token storage and refresh
 |   `-- FeatureProfile        # My profile - the only cross-feature dependency (Auth Interface)
-`-- App/GitSearchApp          # Composition Root - the only place implementations meet
+`-- App/GitSearchApp          # Composition Root - the only place implementations are assembled
 ```
 
 ### 5 Targets per Feature
@@ -203,7 +203,7 @@ Beyond the slicing direction, porting the app was a chance to fix what felt lack
 
 ### GitHub Auth (FeatureAuth)
 - The Interface contract has 4 members: `isLoggedIn` / `makeLoginViewController` / `handleOAuthCallback` / `logout`.
-- Auth URL generation > external browser > deep-link callback > code exchange > Keychain storage - all of it ends inside the feature.
+- Auth URL generation -> external browser -> deep-link callback -> code exchange -> Keychain storage - all of it ends inside the feature.
 - If OAuth keys (Client ID/Secret) are missing, the app shows **setup instructions** instead of an error - clone and run without being blocked.
 
 ### User Search (FeatureSearch)
@@ -212,12 +212,12 @@ Beyond the slicing direction, porting the app was a chance to fix what felt lack
 
 ### Profile (FeatureProfile)
 - Two read paths: `FetchUserUseCase` (cache-first) and `RefreshUserUseCase` (cache-bypassing) - prevents values from freezing for the whole session on re-entry or pull-to-refresh.
-- The living example of the only cross-feature dependency (Auth Interface), and the protagonist of the three-way logout split.
+- The living example of the only cross-feature dependency (Auth Interface), and where the three-way logout split shows up most clearly.
 
 ### Tests (24)
 - **Contract tests**: the in-memory Mock and the real Keychain implementation pass the same `TokenStorage` test suite. Keychain needs a host app, so those run in a separate `CoreStorageHostedTests` target.
 - **Recording stub**: `StubNetworkRequesting` supports result injection and request recording (`requestedEndpoints`), so tests verify which endpoint the Repository called and how many times.
-- 5 behavior tests for `ManagedTask` (re-entry cancellation / single flight) live in Core.
+- 5 behavior tests for `ManagedTask` (re-entry cancellation / single-flight) live in Core.
 
 ---
 
@@ -232,7 +232,7 @@ tuist test                                      # 24 tests
 ```
 
 - To try the OAuth login, create a GitHub OAuth App and fill `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` in `Secrets.xcconfig` (callback: `findusername://callback`). The real key file is gitignored; only the template is committed.
-- Secrets flow into the app via xcconfig > build settings > Info.plist `$(VAR)` > `Bundle`. Features receive values without knowing where they came from.
+- Secrets flow into the app via xcconfig -> build settings -> Info.plist `$(VAR)` -> `Bundle`. Features receive values without knowing where they came from.
 
 ## Tech Stack
 
