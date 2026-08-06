@@ -58,7 +58,7 @@ public func store(_ token: String) {
 
 SecItemUpdate 경로는 존재를 확인하고 분기해야 해서 코드가 배로 늘어납니다. 토큰 저장은 로그인 순간뿐인 저빈도 작업이라 단순함을 샀습니다. 주석에도 명시한 결정입니다. delete와 add 사이의 이론상 빈틈은 로그인 플로우 특성상 동시 store가 없어 실질적으로 무해합니다.
 
-값은 항상 Data입니다. `Data(token.utf8)`이 가장 원초적인 직렬화의 실물입니다.
+값은 항상 Data입니다. `Data(token.utf8)`이 가장 단순한 직렬화의 실물입니다.
 
 접근성은 add 시점에 선언합니다. 저장 후에 바꾸려면 아이템을 다시 써야 합니다. 정책은 저장할 때 정해집니다.
 
@@ -92,7 +92,7 @@ let status = SecItemCopyMatching(query as CFDictionary, &result)
 guard status == errSecSuccess, let data = result as? Data else { return nil }
 ```
 
-retrieve만 status를 확인하고 store와 clear는 반환값인 OSStatus를 버립니다. 교보재로서의 단순화입니다. 실무라면 이렇게 하면 안 됩니다.
+retrieve만 status를 확인하고 store와 clear는 반환값인 OSStatus를 버립니다. 교보재라서 단순하게 뒀습니다. 실무라면 이렇게 하면 안 됩니다.
 
 store의 `SecItemAdd` 실패를 침묵하면 로그인했는데 다음 실행에 풀려 있는 미스터리가 됩니다. 디스크 문제나 마이그레이션 직후, 잠금 상태처럼 드문 경우지만 최소한 로깅은 해야 하고 이상적으로는 throws로 전파해야 합니다.
 

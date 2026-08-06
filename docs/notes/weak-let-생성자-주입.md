@@ -34,7 +34,7 @@
 
 근거는 [SE-0481 `weak let`](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0481-weak-let.md)입니다. 제안서 status 필드 원문 기준으로 Implemented (Swift 6.3)입니다. 그 이전에는 `weak`가 mutable 변수를 강제했습니다.
 
-zeroing이 사이드테이블에서 어떻게 일어나는지, Sendable 재설계에서 `weak var`에 대한 `@unchecked` 강제가 왜 사라졌는지, strong과 unowned와 weak의 `let` 대비, 클로저 캡처 불변화 플래그 같은 언어 이론 축은 별도 주제라 여기서 다루지 않습니다. 이 문서는 왜 이 코드 조직에서 이 패턴을 쓰는지, DI 아키텍처 축만 봅니다.
+zeroing이 사이드테이블에서 어떻게 일어나는지, Sendable 재설계에서 `weak var`에 `@unchecked`를 강제하던 규칙이 왜 사라졌는지, strong과 unowned와 weak의 `let` 대비, 클로저 캡처 불변화 플래그 같은 언어 이론 축은 별도 주제라 여기서 다루지 않습니다. 이 문서는 왜 이 코드 조직에서 이 패턴을 쓰는지, DI 아키텍처 축만 봅니다.
 
 ---
 

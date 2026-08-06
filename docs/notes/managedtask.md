@@ -196,7 +196,7 @@ VM이 `let fetchTask = ManagedTask()`로 들고만 있으면 VM 해제, ManagedT
 
 ## SwiftUI와의 대비
 
-SwiftUI에는 같은 문제에 대한 프레임워크 차원의 답이 이미 있습니다.
+SwiftUI는 같은 문제를 프레임워크 차원에서 이미 풀어 뒀습니다.
 
 ```swift
 SomeView()
